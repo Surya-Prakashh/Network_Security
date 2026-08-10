@@ -152,12 +152,28 @@ function renderPortChart(hostsData) {
 }
 
 // TAB 2: Module 1 Network Discovery
+function loadNetworkInfo() {
+    fetch("/api/network-info")
+        .then(res => res.json())
+        .then(net => {
+            document.getElementById("net-ip").textContent = net.local_ip || "127.0.0.1";
+            document.getElementById("net-gw").textContent = net.default_gateway || "None";
+            document.getElementById("net-mask").textContent = net.subnet_mask || "255.255.255.0";
+            document.getElementById("net-cidr").textContent = net.subnet_cidr || "192.168.1.0/24";
+            
+            const tgtInput = document.getElementById("targetSubnet");
+            if (tgtInput && (!tgtInput.value || tgtInput.value === "127.0.0.1" || tgtInput.value === "192.168.1.0/24")) {
+                tgtInput.value = net.subnet_cidr || "192.168.160.0/19";
+            }
+        });
+}
+
 function loadModule1Data() {
+    loadNetworkInfo();
     fetch("/api/module1/scan")
         .then(res => res.json())
         .then(data => {
             document.getElementById("m1-scan-time").textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "N/A";
-            document.getElementById("m1-cmd-executed").textContent = data.command_executed || "nmap -sV -O -F 127.0.0.1";
             document.getElementById("m1-engine-badge").textContent = data.scan_mode || "Live Real Nmap";
 
             if (data.terminal_output) {
@@ -216,26 +232,35 @@ function fetchTerminalLog() {
         });
 }
 
-function triggerNmapScan() {
+function executeNmapCmd(cmdType) {
     const target = document.getElementById("targetSubnet").value || "127.0.0.1";
-    const scanType = document.getElementById("scanTypeSelect").value || "fast";
-    
-    showToast(`Executing Live Nmap Scan on: ${target}...`);
-    document.getElementById("nmapTerminalConsole").textContent = `$ nmap -sV -O ${scanType === 'full' ? '-p-' : '-F'} ${target}\n\n[Running live Nmap process on host... Please wait]`;
+    showToast(`Executing Nmap ${cmdType.replace('_', ' ').toUpperCase()} on ${target}...`);
+
+    let displayCmd = `nmap -sV ${target}`;
+    if (cmdType === 'ping_sweep') displayCmd = `nmap -sn ${target}`;
+    else if (cmdType === 'basic_scan') displayCmd = `nmap ${target}`;
+    else if (cmdType === 'os_scan') displayCmd = `nmap -O ${target}`;
+    else if (cmdType === 'aggressive_scan') displayCmd = `nmap -A ${target}`;
+
+    document.getElementById("nmapTerminalConsole").textContent = `$ ${displayCmd}\n\n[Executing live Nmap command on target network... Please wait]`;
 
     fetch("/api/module1/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: target, scan_type: scanType })
+        body: JSON.stringify({ cmd_type: cmdType, target: target })
     })
     .then(res => res.json())
     .then(data => {
-        showToast("Nmap Network Discovery Finished!", "success");
+        showToast(`Nmap ${cmdType.replace('_', ' ')} completed!`, "success");
         loadModule1Data();
         loadOverviewData();
         loadPhase4Data();
     })
-    .catch(err => showToast("Scan execution failed.", "error"));
+    .catch(err => showToast("Command execution failed.", "error"));
+}
+
+function triggerNmapScan() {
+    executeNmapCmd('service_scan');
 }
 
 // TAB 3: Module 2 Packet Capture

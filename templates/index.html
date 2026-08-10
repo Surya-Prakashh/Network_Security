@@ -152,18 +152,46 @@
                     </div>
                 </div>
 
-                <div class="control-card">
-                    <div class="input-group">
-                        <label for="targetSubnet"><i class="fa-solid fa-crosshairs"></i> Target Host / Subnet IP:</label>
-                        <input type="text" id="targetSubnet" value="127.0.0.1" placeholder="e.g. 127.0.0.1 or 192.168.1.0/24">
-                        <select id="scanTypeSelect" class="form-control" style="width: 140px;">
-                            <option value="fast">Fast Scan (-F)</option>
-                            <option value="full">Full Scan (-p-)</option>
-                        </select>
+                <!-- Network Interface Info (ipconfig) Card -->
+                <div class="control-card" style="flex-direction: column; align-items: flex-start; gap: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                        <h3 style="font-size: 1rem; color: var(--accent-cyan);"><i class="fa-solid fa-network-wired"></i> Local Network Subnet (ipconfig)</h3>
+                        <button class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;" onclick="loadNetworkInfo()">
+                            <i class="fa-solid fa-rotate"></i> Detect Subnet
+                        </button>
                     </div>
-                    <div class="scan-meta">
-                        <span><i class="fa-solid fa-terminal"></i> Command: <strong id="m1-cmd-executed">nmap -sV -O -F 127.0.0.1</strong></span>
-                        <span><i class="fa-solid fa-clock"></i> Last Scan: <strong id="m1-scan-time">N/A</strong></span>
+                    <div style="display: flex; gap: 2rem; font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap;">
+                        <span>IPv4 Address: <strong id="net-ip" style="color:#fff;">Detecting...</strong></span>
+                        <span>Default Gateway: <strong id="net-gw" style="color:#fff;">Detecting...</strong></span>
+                        <span>Subnet Mask: <strong id="net-mask" style="color:#fff;">Detecting...</strong></span>
+                        <span>Auto-Detected Subnet: <strong id="net-cidr" style="color:var(--accent-yellow);">Detecting...</strong></span>
+                    </div>
+                </div>
+
+                <!-- Dynamic Command Pipeline Bar -->
+                <div class="control-card">
+                    <div class="input-group" style="flex-wrap: wrap; gap: 0.5rem; width: 100%;">
+                        <label for="targetSubnet"><i class="fa-solid fa-crosshairs"></i> Target Host / Subnet:</label>
+                        <input type="text" id="targetSubnet" value="192.168.160.0/19" placeholder="e.g. 192.168.160.0/19 or 192.168.160.1" style="width: 240px;">
+                        
+                        <!-- Individual Nmap Command Buttons -->
+                        <div class="action-group" style="flex-wrap: wrap;">
+                            <button class="btn btn-secondary" onclick="executeNmapCmd('ping_sweep')">
+                                <i class="fa-solid fa-radar"></i> Ping Sweep (-sn)
+                            </button>
+                            <button class="btn btn-secondary" onclick="executeNmapCmd('basic_scan')">
+                                <i class="fa-solid fa-search"></i> Basic Scan
+                            </button>
+                            <button class="btn btn-secondary" onclick="executeNmapCmd('service_scan')">
+                                <i class="fa-solid fa-gear"></i> Service Version (-sV)
+                            </button>
+                            <button class="btn btn-secondary" onclick="executeNmapCmd('os_scan')">
+                                <i class="fa-solid fa-desktop"></i> OS Detection (-O)
+                            </button>
+                            <button class="btn btn-primary" onclick="executeNmapCmd('aggressive_scan')">
+                                <i class="fa-solid fa-bolt"></i> Aggressive Scan (-A)
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -173,7 +201,7 @@
                         <h3><i class="fa-solid fa-terminal"></i> Live Nmap CLI Execution Output</h3>
                         <span class="badge badge-info" id="m1-engine-badge">Live Real Nmap</span>
                     </div>
-                    <pre id="nmapTerminalConsole" style="background: #000; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; overflow-x: auto; max-height: 280px; white-space: pre-wrap;">Loading Nmap terminal output...</pre>
+                    <pre id="nmapTerminalConsole" style="background: #000; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; overflow-x: auto; max-height: 320px; white-space: pre-wrap;">Loading Nmap terminal output...</pre>
                 </div>
 
                 <!-- Host Cards Grid -->

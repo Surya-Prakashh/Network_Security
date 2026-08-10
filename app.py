@@ -14,7 +14,10 @@ import json
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
 # Import local modules
-from module1_network_discovery.scanner import run_nmap_live_scan
+from module1_network_discovery.scanner import (
+    run_single_nmap_command,
+    get_network_interfaces_info
+)
 from module2_packet_capture.sniffer import analyze_pcap
 from module3_mac_spoofing.mac_changer import (
     get_network_adapters, 
@@ -77,22 +80,29 @@ def get_overview():
     })
 
 
+@app.route("/api/network-info", methods=["GET"])
+def get_network_info():
+    """Returns local network interface details from ipconfig."""
+    return jsonify(get_network_interfaces_info())
+
+
 @app.route("/api/module1/scan", methods=["GET", "POST"])
 def api_module1_scan():
-    """Trigger or fetch Phase 1 Real Nmap Discovery results."""
+    """Trigger dynamic Nmap command or fetch scan results."""
     scan_file = os.path.join(BASE_DIR, "module1_network_discovery", "scan_results.json")
     if request.method == "POST":
         data = request.json or {}
-        target = data.get("target_subnet") or data.get("target") or "127.0.0.1"
-        scan_type = data.get("scan_type", "fast")
-        res = run_nmap_live_scan(target, scan_type)
+        cmd_type = data.get("cmd_type") or data.get("scan_type") or "service_scan"
+        target = data.get("target") or data.get("target_subnet")
+        
+        res = run_single_nmap_command(cmd_type, target)
         analyze_security_posture()
         return jsonify(res)
     
     if os.path.exists(scan_file):
         with open(scan_file, "r", encoding="utf-8") as f:
             return jsonify(json.load(f))
-    return jsonify(run_nmap_live_scan("127.0.0.1"))
+    return jsonify(run_single_nmap_command("service_scan", "127.0.0.1"))
 
 
 @app.route("/api/module1/terminal", methods=["GET"])
@@ -170,7 +180,7 @@ def download_file(filename):
 if __name__ == "__main__":
     scan_file = os.path.join(BASE_DIR, "module1_network_discovery", "scan_results.json")
     if not os.path.exists(scan_file):
-        run_nmap_live_scan("127.0.0.1")
+        run_single_nmap_command("service_scan", "127.0.0.1")
     
     packet_file = os.path.join(BASE_DIR, "module2_packet_capture", "packet_analysis.json")
     if not os.path.exists(packet_file):
