@@ -152,10 +152,14 @@ function renderPortChart(hostsData) {
 }
 
 // TAB 2: Module 1 Network Discovery
+let currentNetInfo = null;
+let activeEventSource = null;
+
 function loadNetworkInfo() {
     fetch("/api/network-info")
         .then(res => res.json())
         .then(net => {
+            currentNetInfo = net;
             document.getElementById("net-ip").textContent = net.local_ip || "127.0.0.1";
             document.getElementById("net-gw").textContent = net.default_gateway || "None";
             document.getElementById("net-mask").textContent = net.subnet_mask || "255.255.255.0";
@@ -166,6 +170,16 @@ function loadNetworkInfo() {
                 tgtInput.value = net.subnet_cidr || "192.168.160.0/19";
             }
         });
+}
+
+function setTargetQuick(type) {
+    if (!currentNetInfo) return;
+    const tgtInput = document.getElementById("targetSubnet");
+    if (!tgtInput) return;
+    
+    if (type === 'cidr') tgtInput.value = currentNetInfo.subnet_cidr;
+    else if (type === 'gw') tgtInput.value = currentNetInfo.default_gateway || currentNetInfo.local_ip;
+    else if (type === 'ip') tgtInput.value = currentNetInfo.local_ip;
 }
 
 function viewRawIpconfig() {
@@ -183,7 +197,6 @@ function updateDiscoveredHostDropdown(hosts) {
     const select = document.getElementById("discoveredIpSelect");
     if (!select) return;
     
-    // Save current selection if valid
     const currentVal = select.value;
     select.innerHTML = '<option value="">-- Select Discovered Active Host --</option>';
 
@@ -199,6 +212,24 @@ function updateDiscoveredHostDropdown(hosts) {
         if (h.ip === currentVal) opt.selected = true;
         select.appendChild(opt);
     });
+}
+
+function updateProgressBar(percent, statusTitle) {
+    const pBar = document.getElementById("scanProgressBar");
+    const pBadge = document.getElementById("scanPercentBadge");
+    const sTitle = document.getElementById("scanStatusTitle");
+    const spinner = document.getElementById("scanSpinner");
+
+    const clampPct = Math.min(100, Math.max(0, parseFloat(percent) || 0)).toFixed(1);
+    
+    if (pBar) pBar.style.width = `${clampPct}%`;
+    if (pBadge) pBadge.textContent = `${clampPct}%`;
+
+    if (sTitle && statusTitle) sTitle.textContent = statusTitle;
+
+    if (spinner) {
+        spinner.style.display = (clampPct > 0 && clampPct < 100) ? "inline-block" : "none";
+    }
 }
 
 function renderScanResults(data) {
@@ -280,33 +311,82 @@ function fetchTerminalLog() {
 }
 
 function executeNmapCmd(cmdType) {
-    const target = document.getElementById("targetSubnet").value || "127.0.0.1";
-    showToast(`Executing Nmap ${cmdType.replace('_', ' ').toUpperCase()} on ${target}...`);
+    const targetInput = document.getElementById("targetSubnet");
+    const target = (targetInput && targetInput.value) ? targetInput.value.trim() : "127.0.0.1";
 
-    let displayCmd = `nmap -sV ${target}`;
-    if (cmdType === 'ping_sweep') displayCmd = `nmap -sn ${target}`;
-    else if (cmdType === 'basic_scan') displayCmd = `nmap ${target}`;
-    else if (cmdType === 'os_scan') displayCmd = `nmap -O ${target}`;
-    else if (cmdType === 'aggressive_scan') displayCmd = `nmap -A ${target}`;
+    showToast(`Initiating Nmap ${cmdType.replace('_', ' ').toUpperCase()} on ${target}...`);
 
-    document.getElementById("nmapTerminalConsole").textContent = `$ ${displayCmd}\n\n[Executing live Nmap command on target network... Please wait]`;
+    if (activeEventSource) {
+        activeEventSource.close();
+        activeEventSource = null;
+    }
 
-    fetch("/api/module1/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cmd_type: cmdType, target: target })
-    })
-    .then(res => res.json())
-    .then(data => {
-        showToast(`Nmap ${cmdType.replace('_', ' ')} completed!`, "success");
-        renderScanResults(data);
-        loadOverviewData();
-        loadPhase4Data();
-    })
-    .catch(err => {
-        console.error("Nmap command error:", err);
-        showToast("Command execution failed.", "error");
-    });
+    updateProgressBar(0.0, `Executing ${cmdType.replace('_', ' ').toUpperCase()}...`);
+
+    const consoleElem = document.getElementById("nmapTerminalConsole");
+    consoleElem.textContent = `$ Initializing live stream on ${target}...\n`;
+
+    const streamUrl = `/api/module1/stream-scan?cmd_type=${encodeURIComponent(cmdType)}&target=${encodeURIComponent(target)}`;
+    activeEventSource = new EventSource(streamUrl);
+
+    activeEventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'start') {
+                consoleElem.textContent = `$ ${data.cmd}\n\n[Live Stream Started]\n`;
+                updateProgressBar(5.0, `Scanning target: ${target}`);
+            } else if (data.type === 'log') {
+                if (data.full_log) {
+                    consoleElem.textContent = data.full_log;
+                } else if (data.line) {
+                    consoleElem.textContent += data.line;
+                }
+                consoleElem.scrollTop = consoleElem.scrollHeight;
+
+                if (data.percent !== undefined) {
+                    updateProgressBar(data.percent, `Scanning ${target} (${data.percent}%)...`);
+                }
+            } else if (data.type === 'complete') {
+                updateProgressBar(100.0, `Scan Complete (100%)`);
+                if (data.result) {
+                    renderScanResults(data.result);
+                }
+                showToast(`Nmap ${cmdType.replace('_', ' ')} completed successfully!`, "success");
+                loadOverviewData();
+                loadPhase4Data();
+                activeEventSource.close();
+                activeEventSource = null;
+            }
+        } catch (err) {
+            console.error("SSE parse error:", err);
+        }
+    };
+
+    activeEventSource.onerror = function(err) {
+        console.warn("SSE connection error, falling back to POST API:", err);
+        if (activeEventSource) {
+            activeEventSource.close();
+            activeEventSource = null;
+        }
+        fetch("/api/module1/scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cmd_type: cmdType, target: target })
+        })
+        .then(res => res.json())
+        .then(data => {
+            updateProgressBar(100.0, "Scan Complete");
+            renderScanResults(data);
+            showToast(`Nmap ${cmdType.replace('_', ' ')} completed!`, "success");
+            loadOverviewData();
+            loadPhase4Data();
+        })
+        .catch(e => {
+            updateProgressBar(0, "Scan Failed");
+            showToast("Command execution failed.", "error");
+        });
+    };
 }
 
 function triggerNmapScan() {

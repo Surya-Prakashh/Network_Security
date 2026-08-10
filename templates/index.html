@@ -153,36 +153,45 @@
                 </div>
 
                 <!-- Network Interface Info (ipconfig) Card -->
-                <div class="control-card" style="flex-direction: column; align-items: flex-start; gap: 0.75rem;">
+                <div class="control-card" style="flex-direction: column; align-items: flex-start; gap: 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 242, 254, 0.2);">
                     <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                        <h3 style="font-size: 1rem; color: var(--accent-cyan);"><i class="fa-solid fa-network-wired"></i> Step 1: Local Network Interface & Subnet (ipconfig)</h3>
+                        <h3 style="font-size: 1.05rem; color: var(--accent-cyan); font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fa-solid fa-network-wired"></i> Step 1: Network Subnet Auto-Captured (ipconfig)
+                        </h3>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;" onclick="viewRawIpconfig()">
+                            <button class="btn btn-secondary" style="padding: 0.35rem 0.8rem; font-size: 0.78rem;" onclick="viewRawIpconfig()">
                                 <i class="fa-solid fa-terminal"></i> Show Raw ipconfig Log
                             </button>
-                            <button class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;" onclick="loadNetworkInfo()">
-                                <i class="fa-solid fa-rotate"></i> Refresh Subnet
+                            <button class="btn btn-outline" style="padding: 0.35rem 0.8rem; font-size: 0.78rem;" onclick="loadNetworkInfo()">
+                                <i class="fa-solid fa-rotate"></i> Re-Detect ipconfig
                             </button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 2rem; font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap;">
-                        <span>IPv4 Address: <strong id="net-ip" style="color:#fff;">Detecting...</strong></span>
+                    <div style="display: flex; gap: 1.8rem; font-size: 0.88rem; color: var(--text-muted); flex-wrap: wrap; background: rgba(0,0,0,0.25); padding: 0.75rem 1rem; border-radius: 8px; width: 100%;">
+                        <span>IPv4 Address: <strong id="net-ip" style="color:#00f2fe;">Detecting...</strong></span>
                         <span>Default Gateway: <strong id="net-gw" style="color:#fff;">Detecting...</strong></span>
                         <span>Subnet Mask: <strong id="net-mask" style="color:#fff;">Detecting...</strong></span>
-                        <span>Auto-Calculated Subnet: <strong id="net-cidr" style="color:var(--accent-yellow);">Detecting...</strong></span>
+                        <span>Auto-Captured Target Subnet: <strong id="net-cidr" style="color:var(--accent-yellow); font-size: 0.95rem;">Detecting...</strong></span>
                     </div>
                 </div>
 
                 <!-- Dynamic Command Pipeline Bar -->
-                <div class="control-card">
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
+                <div class="control-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08);">
+                    <div style="display: flex; flex-direction: column; gap: 0.85rem; width: 100%;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                                <label for="targetSubnet"><strong>Target Subnet / IP:</strong></label>
-                                <input type="text" id="targetSubnet" value="192.168.160.0/19" placeholder="e.g. 192.168.160.0/19 or 192.168.160.1" style="width: 220px;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                                <label for="targetSubnet"><strong style="color:#fff;">Target Host / Subnet:</strong></label>
+                                <input type="text" id="targetSubnet" value="" placeholder="Auto-captured from ipconfig..." style="width: 220px; font-weight: 600; color: #00f2fe; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,242,254,0.3);">
                                 
-                                <label for="discoveredIpSelect" style="margin-left: 1rem;"><strong>Discovered Active Hosts:</strong></label>
-                                <select id="discoveredIpSelect" class="form-control" style="width: 240px;" onchange="document.getElementById('targetSubnet').value = this.value">
+                                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Quick Target:</span>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('cidr')">Subnet CIDR</button>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('gw')">Gateway IP</button>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('ip')">Local IP</button>
+                                </div>
+
+                                <label for="discoveredIpSelect" style="margin-left: 0.8rem;"><strong style="color:#fff;">Discovered Active Hosts:</strong></label>
+                                <select id="discoveredIpSelect" class="form-control" style="width: 240px; background: rgba(0,0,0,0.4); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onchange="document.getElementById('targetSubnet').value = this.value">
                                     <option value="">(Run Ping Sweep to populate)</option>
                                 </select>
                             </div>
@@ -202,25 +211,39 @@
                             <button class="btn btn-secondary" onclick="executeNmapCmd('os_scan')">
                                 <i class="fa-solid fa-desktop"></i> Step 5: OS Detection (-O)
                             </button>
-                            <button class="btn btn-warning" onclick="executeNmapCmd('aggressive_scan')">
+                            <button class="btn btn-warning" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); border: none; color: #fff; font-weight: 700;" onclick="executeNmapCmd('aggressive_scan')">
                                 <i class="fa-solid fa-bolt"></i> Step 6: Aggressive Audit (-A)
                             </button>
                         </div>
                     </div>
                 </div>
 
+                <!-- Live Scan Percentage Progress Bar -->
+                <div class="control-card" id="scanProgressCard" style="display: flex; flex-direction: column; gap: 0.6rem; background: rgba(10, 16, 30, 0.8); border: 1px solid rgba(0, 242, 254, 0.25);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span style="font-size: 0.88rem; font-weight: 600; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fa-solid fa-circle-notch fa-spin" id="scanSpinner" style="display:none; color:#00f2fe;"></i>
+                            <span id="scanStatusTitle">Scan Idle / Ready</span>
+                        </span>
+                        <span class="badge badge-info" id="scanPercentBadge" style="font-size: 0.82rem; font-weight: 700; background: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid rgba(0, 242, 254, 0.3);">0.0%</span>
+                    </div>
+                    <div style="width: 100%; background: rgba(255,255,255,0.06); border-radius: 6px; height: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                        <div id="scanProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00f2fe 0%, #3b82f6 50%, #10b981 100%); transition: width 0.3s ease; box-shadow: 0 0 12px rgba(0, 242, 254, 0.6);"></div>
+                    </div>
+                </div>
+
                 <!-- Nmap Terminal Execution Output Console -->
-                <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem;">
-                    <div class="table-header">
-                        <h3><i class="fa-solid fa-terminal"></i> Live Terminal CLI Log Output</h3>
+                <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 255, 102, 0.2);">
+                    <div class="table-header" style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                        <h3 style="color:#00ff66;"><i class="fa-solid fa-terminal"></i> Live Terminal CLI Execution Stream</h3>
                         <div>
                             <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="navigator.clipboard.writeText(document.getElementById('nmapTerminalConsole').textContent); showToast('Terminal log copied!');">
                                 <i class="fa-regular fa-copy"></i> Copy Terminal Output
                             </button>
-                            <span class="badge badge-info" id="m1-engine-badge" style="margin-left:0.5rem;">Live Real CLI</span>
+                            <span class="badge badge-info" id="m1-engine-badge" style="margin-left:0.5rem; background: rgba(0,255,102,0.15); color: #00ff66; border: 1px solid rgba(0,255,102,0.3);">Live Real CLI</span>
                         </div>
                     </div>
-                    <pre id="nmapTerminalConsole" style="background: #090d16; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; overflow-x: auto; max-height: 350px; white-space: pre-wrap; border: 1px solid rgba(0,255,102,0.2);">Loading CLI output...</pre>
+                    <pre id="nmapTerminalConsole" style="background: #060911; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; overflow-x: auto; max-height: 380px; white-space: pre-wrap; border: 1px solid rgba(0,255,102,0.15); box-shadow: inset 0 0 15px rgba(0,0,0,0.8);">Loading CLI output...</pre>
                 </div>
 
                 <!-- Host Cards Grid -->
@@ -451,6 +474,6 @@
     <div id="toast" class="toast hidden"></div>
 
     <!-- Dashboard JS Script -->
-    <script src="/static/dashboard.js?v=12"></script>
+    <script src="/static/dashboard.js?v=15"></script>
 </body>
 </html>

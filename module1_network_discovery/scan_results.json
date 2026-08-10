@@ -1,17 +1,27 @@
 {
-    "timestamp": "2026-08-10T14:35:56.889631",
+    "timestamp": "2026-08-10T15:15:40.059711",
     "target": "10.20.167.0/24",
-    "command_executed": "nmap -A 10.20.167.0/24",
-    "cmd_type": "aggressive_scan",
-    "scan_mode": "Live Nmap CLI (Aggressive Scan)",
+    "command_executed": "nmap -sn --stats-every 1s --min-rate 300 10.20.167.0/24",
+    "cmd_type": "ping_sweep",
+    "scan_mode": "Live Nmap CLI (Ping Sweep)",
     "network_interfaces": {
-        "local_ip": "10.141.210.60",
-        "default_gateway": "10.141.210.23",
+        "local_ip": "10.20.167.60",
+        "default_gateway": "10.20.167.107",
         "subnet_mask": "255.255.255.0",
-        "subnet_cidr": "10.141.210.0/24",
-        "raw_ipconfig": "\nWindows IP Configuration\n\n\nUnknown adapter Local Area Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 3:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 4:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Wi-Fi:\n\n   Connection-specific DNS Suffix  . : \n   IPv4 Address. . . . . . . . . . . : 10.141.210.60\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n   Default Gateway . . . . . . . . . : 10.141.210.23\n\nEthernet adapter Bluetooth Network Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nEthernet adapter Ethernet:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n"
+        "subnet_cidr": "10.20.167.0/24",
+        "raw_ipconfig": "\nWindows IP Configuration\n\n\nUnknown adapter Local Area Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 3:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 4:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Wi-Fi:\n\n   Connection-specific DNS Suffix  . : \n   IPv4 Address. . . . . . . . . . . : 10.20.167.60\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n   Default Gateway . . . . . . . . . : 10.20.167.107\n\nEthernet adapter Bluetooth Network Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nEthernet adapter Ethernet:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n"
     },
-    "total_hosts_found": 0,
-    "hosts": [],
-    "terminal_output": "$ nmap -A 10.20.167.0/24\n\nError executing Nmap: Command '['nmap', '-A', '10.20.167.0/24']' timed out after 180 seconds"
+    "total_hosts_found": 1,
+    "hosts": [
+        {
+            "ip": "10.20.167.60",
+            "status": "up",
+            "hostname": "10.20.167.60",
+            "mac_address": "N/A",
+            "vendor": "Unknown",
+            "os_details": "OS detection not available / restricted",
+            "ports": []
+        }
+    ],
+    "terminal_output": "$ nmap -sn --stats-every 1s --min-rate 300 10.20.167.0/24\n\nStarting Nmap 7.99 ( https://nmap.org ) at 2026-08-10 15:15 +0530\nStats: 0:00:01 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan\nARP Ping Scan Timing: About 27.84% done; ETC: 15:15 (0:00:03 remaining)\nStats: 0:00:02 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan\nARP Ping Scan Timing: About 73.73% done; ETC: 15:15 (0:00:01 remaining)\nNmap scan report for 10.20.167.60\nHost is up.\nNmap done: 256 IP addresses (1 host up) scanned in 3.33 seconds\n"
 }
