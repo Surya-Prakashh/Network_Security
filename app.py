@@ -205,7 +205,8 @@ def api_module2_export():
             "csv_path": "module2_packet_capture/packet_analysis.csv",
         })
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        print(f"[!] Module 2 export failed: {exc}")
+        return jsonify({"ok": False, "error": "Failed to export capture data."}), 500
 
 
 @app.route("/api/module2/status", methods=["GET"])
