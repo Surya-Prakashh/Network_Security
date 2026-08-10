@@ -14,6 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css">
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
     <!-- Top Navigation Header -->
@@ -181,72 +183,222 @@
                     <!-- Host cards populated dynamically -->
                 </div>
             </section>
-
-            <!-- TAB 3: MODULE 2 PACKET CAPTURE -->
+            <!-- TAB 3: MODULE 2 REAL-TIME PACKET CAPTURE -->
             <section id="module2" class="tab-content">
                 <div class="section-header">
                     <div>
-                        <h2>Module 2: Packet Capture & Protocol Analysis (Wireshark/PyShark)</h2>
-                        <p class="section-desc">Folder: <code>module2_packet_capture/</code> • Captures TCP (3-way handshake), UDP, DNS, HTTP/HTTPS, and ICMP traffic.</p>
+                        <h2>Module 2: Real-Time Packet Capture &amp; Analysis</h2>
+                        <p class="section-desc">Folder: <code>module2_packet_capture/</code> &bull; Live capture via Scapy &bull; TCP 3-way handshake &bull; DNS &bull; HTTPS/TLS &bull; ICMP &bull; QUIC</p>
                     </div>
                     <div class="action-group">
-                        <a href="/download/module2_packet_capture/packet_analysis.csv" class="btn btn-outline">
-                            <i class="fa-solid fa-file-csv"></i> Download CSV
+                        <a id="m2-download-json" href="/download/module2_packet_capture/packet_analysis.json" class="btn btn-outline">
+                            <i class="fa-solid fa-file-code"></i> JSON
                         </a>
-                        <button class="btn btn-primary" onclick="triggerPacketCapture()">
-                            <i class="fa-solid fa-network-wired"></i> Capture & Dissect PCAP
+                        <a id="m2-download-csv" href="/download/module2_packet_capture/packet_analysis.csv" class="btn btn-outline">
+                            <i class="fa-solid fa-file-csv"></i> CSV
+                        </a>
+                        <button class="btn btn-primary" id="m2-export-btn" onclick="m2ExportCapture()">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Export
                         </button>
                     </div>
                 </div>
 
-                <!-- TCP Handshake Sequence Visualizer -->
-                <div class="handshake-card">
-                    <h3><i class="fa-solid fa-handshake"></i> TCP 3-Way Handshake Dissector</h3>
-                    <div class="handshake-steps">
-                        <div class="step-box">
-                            <span class="step-num">Step 1</span>
-                            <h4>SYN Sent</h4>
-                            <p>Client -> Server [SYN] Seq=0</p>
+                <!-- Capture Controls -->
+                <div class="control-card" style="margin-bottom:1.5rem;">
+                    <div class="input-group" style="flex-wrap:wrap; gap:0.75rem; align-items:center;">
+                        <label for="m2-iface-select" style="white-space:nowrap;"><i class="fa-solid fa-ethernet"></i> Interface:</label>
+                        <select id="m2-iface-select" class="form-control" style="min-width:180px; flex:1;">
+                            <option value="">Loading interfaces...</option>
+                        </select>
+                        <button class="btn btn-primary" id="m2-start-btn" onclick="m2StartCapture()">
+                            <i class="fa-solid fa-circle-play"></i> START CAPTURE
+                        </button>
+                        <button class="btn btn-warning" id="m2-stop-btn" onclick="m2StopCapture()" disabled>
+                            <i class="fa-solid fa-circle-stop"></i> STOP
+                        </button>
+                        <button class="btn btn-secondary" id="m2-clear-btn" onclick="m2ClearCapture()">
+                            <i class="fa-solid fa-trash"></i> CLEAR
+                        </button>
+                    </div>
+                    <div class="scan-meta" style="margin-top:0.75rem; display:flex; gap:2rem; align-items:center; flex-wrap:wrap;">
+                        <span>
+                            <span id="m2-status-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6b7280;margin-right:6px;"></span>
+                            <strong id="m2-status-text">Idle</strong>
+                        </span>
+                        <span><i class="fa-solid fa-clock"></i> Started: <strong id="m2-start-time">—</strong></span>
+                        <span id="m2-error-text" style="color:#ef4444; display:none;"><i class="fa-solid fa-triangle-exclamation"></i> <span id="m2-error-msg"></span></span>
+                    </div>
+                </div>
+
+                <!-- Live Statistics Bar -->
+                <div class="table-card" style="margin-bottom:1.5rem;">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-chart-bar"></i> Live Statistics</h3>
+                        <span class="badge badge-m2" id="m2-total-badge">0 Packets</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:1rem; padding:1rem 1.25rem;">
+                        <div class="m2-stat-tile" id="m2-stat-TCP">
+                            <span class="proto-tag proto-tcp">TCP</span>
+                            <div class="m2-stat-num" id="m2-cnt-TCP">0</div>
                         </div>
-                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                        <div class="step-box">
-                            <span class="step-num">Step 2</span>
-                            <h4>SYN-ACK Received</h4>
-                            <p>Server -> Client [SYN, ACK] Seq=0 Ack=1</p>
+                        <div class="m2-stat-tile" id="m2-stat-UDP">
+                            <span class="proto-tag proto-udp">UDP</span>
+                            <div class="m2-stat-num" id="m2-cnt-UDP">0</div>
                         </div>
-                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                        <div class="step-box">
-                            <span class="step-num">Step 3</span>
-                            <h4>ACK Sent</h4>
-                            <p>Client -> Server [ACK] Seq=1 Ack=1 (Established)</p>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag proto-dns">DNS</span>
+                            <div class="m2-stat-num" id="m2-cnt-DNS">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag" style="background:rgba(99,102,241,0.15);color:#818cf8;">TLS</span>
+                            <div class="m2-stat-num" id="m2-cnt-HTTPS/TLS">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag proto-icmp">ICMP</span>
+                            <div class="m2-stat-num" id="m2-cnt-ICMP">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag proto-http">HTTP</span>
+                            <div class="m2-stat-num" id="m2-cnt-HTTP">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag" style="background:rgba(16,185,129,0.15);color:#34d399;">QUIC</span>
+                            <div class="m2-stat-num" id="m2-cnt-QUIC">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag" style="background:rgba(239,68,68,0.15);color:#f87171;">OTHER</span>
+                            <div class="m2-stat-num" id="m2-cnt-OTHER">0</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Packets Table -->
-                <div class="table-card">
+                <!-- Live Packets Table -->
+                <div class="table-card" style="margin-bottom:1.5rem;">
                     <div class="table-header">
-                        <h3>Captured Packets Stream</h3>
-                        <span class="badge badge-info" id="packet-count-badge">0 Packets</span>
+                        <h3><i class="fa-solid fa-wave-square"></i> Live Packets</h3>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <span class="badge badge-info" id="packet-count-badge">0 Packets</span>
+                            <span style="font-size:0.75rem;color:#6b7280;">(showing latest 500)</span>
+                        </div>
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-responsive" style="max-height:400px; overflow-y:auto;" id="m2-packets-scroll">
                         <table class="data-table">
-                            <thead>
+                            <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
                                 <tr>
                                     <th>#</th>
                                     <th>Time</th>
                                     <th>Source IP</th>
                                     <th>Destination IP</th>
                                     <th>Protocol</th>
-                                    <th>Length (B)</th>
-                                    <th>Details</th>
-                                    <th>TCP Handshake / DNS</th>
+                                    <th>Src Port</th>
+                                    <th>Dst Port</th>
+                                    <th>Length</th>
+                                    <th>Info</th>
                                 </tr>
                             </thead>
                             <tbody id="packetsTableBody">
-                                <!-- Packets dynamically loaded -->
+                                <tr id="m2-empty-row">
+                                    <td colspan="9" style="text-align:center;color:#6b7280;padding:2rem;">Start capture to see live packets</td>
+                                </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Bottom panels: TCP Handshakes | DNS Queries | ICMP -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+
+                    <!-- TCP Handshakes -->
+                    <div class="table-card">
+                        <div class="table-header">
+                            <h3><i class="fa-solid fa-handshake"></i> TCP Handshakes</h3>
+                            <span class="badge badge-info" id="m2-hs-count">0</span>
+                        </div>
+                        <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                            <table class="data-table">
+                                <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
+                                    <tr>
+                                        <th>Client</th>
+                                        <th>Server</th>
+                                        <th>Port</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="m2-handshakes-body">
+                                    <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:1.5rem;">No handshakes yet</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- DNS Queries -->
+                    <div class="table-card">
+                        <div class="table-header">
+                            <h3><i class="fa-solid fa-globe"></i> DNS Queries</h3>
+                            <span class="badge badge-info" id="m2-dns-count">0</span>
+                        </div>
+                        <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                            <table class="data-table">
+                                <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Domain</th>
+                                        <th>Type</th>
+                                        <th>Source</th>
+                                        <th>DNS Server</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="m2-dns-body">
+                                    <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:1.5rem;">No DNS queries yet</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ICMP Statistics -->
+                <div class="table-card" style="margin-bottom:1.5rem;">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-network-wired"></i> ICMP Statistics</h3>
+                        <span class="badge badge-info" id="m2-icmp-total">0</span>
+                    </div>
+                    <div style="display:flex;gap:2rem;padding:1rem 1.25rem;flex-wrap:wrap;">
+                        <div class="m2-stat-tile" style="text-align:center;min-width:130px;">
+                            <div style="font-size:0.8rem;color:#9ca3af;margin-bottom:0.3rem;">Echo Request (ping)</div>
+                            <div class="m2-stat-num" id="m2-icmp-req">0</div>
+                        </div>
+                        <div class="m2-stat-tile" style="text-align:center;min-width:130px;">
+                            <div style="font-size:0.8rem;color:#9ca3af;margin-bottom:0.3rem;">Echo Reply</div>
+                            <div class="m2-stat-num" id="m2-icmp-rep">0</div>
+                        </div>
+                        <div class="m2-stat-tile" style="text-align:center;min-width:130px;">
+                            <div style="font-size:0.8rem;color:#9ca3af;margin-bottom:0.3rem;">Other ICMP</div>
+                            <div class="m2-stat-num" id="m2-icmp-other">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TCP 3-Way Handshake Educator -->
+                <div class="handshake-card">
+                    <h3><i class="fa-solid fa-diagram-project"></i> TCP 3-Way Handshake Reference</h3>
+                    <div class="handshake-steps">
+                        <div class="step-box">
+                            <span class="step-num">Step 1</span>
+                            <h4>SYN Sent</h4>
+                            <p>Client &rarr; Server [SYN] Seq=0</p>
+                        </div>
+                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="step-box">
+                            <span class="step-num">Step 2</span>
+                            <h4>SYN-ACK Received</h4>
+                            <p>Server &rarr; Client [SYN, ACK] Seq=0 Ack=1</p>
+                        </div>
+                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="step-box">
+                            <span class="step-num">Step 3</span>
+                            <h4>ACK Sent</h4>
+                            <p>Client &rarr; Server [ACK] Seq=1 Ack=1 (Established)</p>
+                        </div>
                     </div>
                 </div>
             </section>
