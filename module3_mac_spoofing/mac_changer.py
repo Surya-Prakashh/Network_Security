@@ -1,170 +1,320 @@
 """
 Module 3: MAC Address Spoofing & Management (Phase 3)
 ------------------------------------------------------
-Allows viewing current MAC address, spoofing/changing MAC address, 
-restarting network adapter, verifying new MAC address, and restoring original MAC.
-Uses PowerShell net-adapter commands and Windows registry subprocess calls with safe simulation fallback.
+Allows viewing current MAC address, spoofing/changing MAC address,
+restarting network adapter, verifying new MAC address, restoring original MAC,
+maintaining automated configuration, experiment logging, and generating reports.
 """
 
 import os
-import sys
-import re
 import json
-import random
-import datetime
+import re
 import subprocess
+from datetime import datetime
+import pandas as pd
 
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mac_spoofing_log.json")
+MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATE_FILE = os.path.join(MODULE_DIR, "mac_spoofing_log.json")
+CONFIG_FILE = os.path.join(MODULE_DIR, "config.json")
+REPORTS_DIR = os.path.join(MODULE_DIR, "reports")
+LOG_FILE = os.path.join(REPORTS_DIR, "experiment_log.csv")
 
 
-def generate_random_mac():
-    """Generates a valid unicast, locally administered MAC address."""
-    # Second hex digit must be 2, 6, A, or E for locally administered unicast MAC
-    first_byte = f"{random.choice([0x02, 0x06, 0x0A, 0x0E]):02X}"
-    remaining = [f"{random.randint(0, 255):02X}" for _ in range(5)]
-    return f"{first_byte}:{':'.join(remaining)}"
+def get_wifi_adapter_info():
+    """Extract adapter name and physical MAC address using Windows ipconfig /all."""
+    try:
+        result = subprocess.run(
+            ["ipconfig", "/all"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        output = result.stdout
+
+        adapter_match = re.search(
+            r"Wireless LAN adapter Wi-Fi:(.*?)(?=\n\S|\Z)",
+            output,
+            re.DOTALL | re.IGNORECASE
+        )
+
+        adapter_name = "RZ616 Wi-Fi 6E 160MHz"
+        mac_address = None
+
+        if adapter_match:
+            adapter_info = adapter_match.group(1)
+
+            desc_match = re.search(r"Description[.\s:]*(.+)", adapter_info)
+            if desc_match:
+                adapter_name = desc_match.group(1).strip()
+
+            mac_match = re.search(
+                r"Physical Address[.\s:]*([0-9A-Fa-f-]{17})",
+                adapter_info
+            )
+            if mac_match:
+                mac_address = mac_match.group(1).upper()
+
+        return adapter_name, mac_address
+    except Exception as e:
+        print(f"[!] Error detecting Wi-Fi adapter: {e}")
+        return "Wi-Fi Adapter", None
+
+
+def load_or_create_config():
+    """Load configuration from config.json or create baseline automatically."""
+    adapter_name, current_mac = get_wifi_adapter_info()
+
+    default_config = {
+        "adapter": adapter_name if adapter_name else "RZ616 Wi-Fi 6E 160MHz",
+        "original_mac": current_mac if current_mac else "60-E9-AA-F0-A2-C1",
+        "spoofed_mac": "0C-0C-0C-0C-0C-01"
+    }
+
+    if not os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(default_config, f, indent=4)
+        return default_config
+
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            config = json.load(f)
+            for key, val in default_config.items():
+                if key not in config:
+                    config[key] = val
+            return config
+    except Exception as e:
+        print(f"[!] Error loading config.json: {e}")
+        return default_config
+
+
+def save_config(config):
+    """Save updated configuration to config.json."""
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=4)
+
+
+def get_mac_status(current_mac, config):
+    """Determine MAC status (ORIGINAL / SPOOFED / UNKNOWN)."""
+    if not current_mac:
+        return "ERROR"
+    orig_mac = config.get("original_mac", "").upper().replace(":", "-")
+    spoof_mac = config.get("spoofed_mac", "").upper().replace(":", "-")
+    curr_mac = current_mac.upper().replace(":", "-")
+
+    if curr_mac == orig_mac:
+        return "ORIGINAL"
+    elif curr_mac == spoof_mac:
+        return "SPOOFED"
+    else:
+        return "UNKNOWN"
 
 
 def get_network_adapters():
-    """Retrieves list of active network adapters on Windows."""
-    adapters = []
-    try:
-        cmd = "powershell -Command \"Get-NetAdapter | Select-Object Name, InterfaceDescription, MacAddress, Status | ConvertTo-Json\""
-        output = subprocess.check_output(cmd, shell=True, text=True, timeout=10)
-        data = json.loads(output)
-        if isinstance(data, dict):
-            data = [data]
-        for item in data:
-            adapters.append({
-                "name": item.get("Name", "Unknown Adapter"),
-                "description": item.get("InterfaceDescription", "N/A"),
-                "mac": item.get("MacAddress", "00:00:00:00:00:00"),
-                "status": item.get("Status", "Unknown")
-            })
-    except Exception:
-        # Fallback default adapters list if PowerShell query fails
-        adapters = [
-            {"name": "Wi-Fi", "description": "Intel(R) Wi-Fi 6 AX201 160MHz", "mac": "F4:6D:04:88:99:AA", "status": "Up"},
-            {"name": "Ethernet", "description": "Realtek PCIe GbE Family Controller", "mac": "00:0C:29:44:55:66", "status": "Disconnected"}
-        ]
-    return adapters
+    """Retrieves active network adapters for API dashboard compatibility."""
+    adapter_name, mac = get_wifi_adapter_info()
+    return [{
+        "name": "Wi-Fi",
+        "description": adapter_name if adapter_name else "Wi-Fi 6E Adapter",
+        "mac": mac if mac else "60-E9-AA-F0-A2-C1",
+        "status": "Up"
+    }]
 
 
 def load_log():
-    if os.path.exists(STATE_FILE):
+    """Load JSON state log for web API dashboard."""
+    config = load_or_create_config()
+    _, current_mac = get_wifi_adapter_info()
+    status = get_mac_status(current_mac, config)
+
+    history = []
+    if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
         try:
-            with open(STATE_FILE, "r") as f:
-                return json.load(f)
+            df = pd.read_csv(LOG_FILE)
+            history = df.to_dict(orient="records")
         except Exception:
             pass
+
     return {
-        "adapter_name": "Wi-Fi",
-        "original_mac": "F4:6D:04:88:99:AA",
-        "current_mac": "F4:6D:04:88:99:AA",
-        "is_spoofed": False,
-        "history": []
+        "adapter_name": config.get("adapter"),
+        "original_mac": config.get("original_mac"),
+        "spoofed_mac": config.get("spoofed_mac"),
+        "current_mac": current_mac if current_mac else config.get("original_mac"),
+        "is_spoofed": (status == "SPOOFED"),
+        "status": status,
+        "history": history
     }
 
 
-def save_log(log_data):
-    with open(STATE_FILE, "w") as f:
-        json.dump(log_data, f, indent=4)
+def log_experiment(action, current_mac, status, config):
+    """Append experiment step into CSV log file."""
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
+    adapter = config.get("adapter", "Wi-Fi Adapter")
+    mac_str = current_mac if current_mac else "N/A"
+
+    file_is_empty = not os.path.exists(LOG_FILE) or os.path.getsize(LOG_FILE) == 0
+
+    with open(LOG_FILE, "a") as f:
+        if file_is_empty:
+            f.write("Timestamp,Adapter,MAC Address,Status,Action\n")
+        f.write(f'"{timestamp}","{adapter}","{mac_str}","{status}","{action}"\n')
 
 
 def view_current_mac(adapter_name="Wi-Fi"):
     """Phase 3 Step 1: View current MAC address."""
-    adapters = get_network_adapters()
-    for ad in adapters:
-        if ad["name"].lower() == adapter_name.lower():
-            print(f"[*] Adapter: {ad['name']} | Current MAC: {ad['mac']} | Status: {ad['status']}")
-            return ad
-    
-    # Return log status if adapter name match is virtual
-    log_data = load_log()
-    print(f"[*] Adapter: {log_data['adapter_name']} | Current MAC: {log_data['current_mac']}")
-    return {"name": log_data["adapter_name"], "mac": log_data["current_mac"], "status": "Up"}
+    config = load_or_create_config()
+    _, current_mac = get_wifi_adapter_info()
+    status = get_mac_status(current_mac, config)
+    log_experiment("Check Current MAC", current_mac, status, config)
+
+    print(f"[*] Adapter: {config.get('adapter')} | Current MAC: {current_mac} | Status: {status}")
+    return {
+        "adapter": config.get("adapter"),
+        "mac": current_mac,
+        "status": status
+    }
 
 
 def change_mac_address(adapter_name="Wi-Fi", new_mac=None):
-    """Phase 3 Step 2 & 3 & 4: Change MAC address, restart adapter, verify new MAC."""
-    if not new_mac:
-        new_mac = generate_random_mac()
-    
-    # Clean MAC format (AA-BB-CC-DD-EE-FF or AABBCCDDEEFF)
-    raw_mac = new_mac.replace(":", "").replace("-", "").upper()
-    formatted_mac = ":".join([raw_mac[i:i+2] for i in range(0, 12, 2)])
+    """Phase 3 Step 2, 3 & 4: Record MAC change / verification."""
+    config = load_or_create_config()
+    target_mac = new_mac if new_mac else config.get("spoofed_mac")
 
-    log_data = load_log()
-    log_data["adapter_name"] = adapter_name
-    if not log_data.get("original_mac"):
-        log_data["original_mac"] = log_data["current_mac"]
+    _, current_mac = get_wifi_adapter_info()
+    status = get_mac_status(current_mac, config)
 
-    print(f"[*] Initiating MAC Spoofing for '{adapter_name}' -> New MAC: {formatted_mac}")
-    
-    # Attempt PowerShell elevated execution
-    admin_success = False
-    try:
-        ps_cmd = f"Set-NetAdapter -Name '{adapter_name}' -MacAddress '{formatted_mac}' -Confirm:$false; Restart-NetAdapter -Name '{adapter_name}'"
-        res = subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True, timeout=15)
-        if res.returncode == 0:
-            admin_success = True
-            print("[+] PowerShell MAC change & adapter restart executed successfully.")
-    except Exception as e:
-        print(f"[!] PowerShell administrative command notice: {e}")
+    log_experiment("Verify Spoofed MAC", current_mac, status, config)
 
-    # Update state log (either actual or simulated mode)
-    log_data["current_mac"] = formatted_mac
-    log_data["is_spoofed"] = True
-    event = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "action": "CHANGE_MAC",
-        "adapter": adapter_name,
-        "new_mac": formatted_mac,
-        "adapter_restarted": True,
-        "verified": True,
-        "admin_elevated": admin_success
-    }
-    log_data["history"].append(event)
-    save_log(log_data)
-    
-    print(f"[+] Verified New MAC Address: {formatted_mac}")
-    return log_data
+    print(f"[*] Target Spoofed MAC: {target_mac}")
+    print(f"[*] Current Live MAC  : {current_mac}")
+    print(f"[*] Status            : {status}")
+
+    return load_log()
 
 
 def restore_original_mac(adapter_name="Wi-Fi"):
     """Phase 3 Step 5: Restore original MAC address."""
-    log_data = load_log()
-    orig_mac = log_data.get("original_mac", "F4:6D:04:88:99:AA")
+    config = load_or_create_config()
+    _, current_mac = get_wifi_adapter_info()
+    status = get_mac_status(current_mac, config)
 
-    print(f"[*] Restoring Original MAC ({orig_mac}) on '{adapter_name}'...")
+    log_experiment("Verify Restoration", current_mac, status, config)
+
+    print(f"[*] Restoring / Verifying Original MAC: {config.get('original_mac')}")
+    print(f"[*] Current Live MAC                 : {current_mac}")
+    print(f"[*] Status                           : {status}")
+
+    return load_log()
+
+
+def generate_reports(config=None):
+    """Generate summary CSV and multi-sheet Excel reports."""
+    if not config:
+        config = load_or_create_config()
+
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    csv_path = os.path.join(REPORTS_DIR, "Phase3_MAC_Report.csv")
+    xlsx_path = os.path.join(REPORTS_DIR, "Phase3_MAC_Report.xlsx")
+
+    _, current_mac = get_wifi_adapter_info()
+    status = get_mac_status(current_mac, config)
+
+    if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
+        log_df = pd.read_csv(LOG_FILE)
+    else:
+        log_df = pd.DataFrame(columns=["Timestamp", "Adapter", "MAC Address", "Status", "Action"])
+
+    summary_data = [{
+        "Project Phase": "Phase 3 - MAC Address Spoofing",
+        "Adapter": config.get("adapter"),
+        "Original MAC": config.get("original_mac"),
+        "Spoofed MAC Allowed": config.get("spoofed_mac"),
+        "Current Live MAC": current_mac,
+        "Current Status": status,
+        "Total Test Runs": len(log_df),
+        "Report Generated At": datetime.now().strftime("%d-%b-%Y %H:%M:%S")
+    }]
+    summary_df = pd.DataFrame(summary_data)
+
+    summary_df.to_csv(csv_path, index=False)
+    print(f"[+] Summary CSV report generated: '{csv_path}'")
 
     try:
-        ps_cmd = f"Set-NetAdapter -Name '{adapter_name}' -NoAsTask -MacAddress '' -Confirm:$false; Restart-NetAdapter -Name '{adapter_name}'"
-        subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True, timeout=15)
-    except Exception:
-        pass
+        with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
+            summary_df.to_excel(writer, sheet_name="Phase3_Summary", index=False)
+            log_df.to_excel(writer, sheet_name="Experiment_Logs", index=False)
+        print(f"[+] Multi-sheet Excel report generated: '{xlsx_path}'")
+    except Exception as e:
+        print(f"[!] Error generating Excel report: {e}")
 
-    log_data["current_mac"] = orig_mac
-    log_data["is_spoofed"] = False
-    event = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "action": "RESTORE_MAC",
-        "adapter": adapter_name,
-        "restored_mac": orig_mac,
-        "adapter_restarted": True,
-        "verified": True
-    }
-    log_data["history"].append(event)
-    save_log(log_data)
+    log_experiment("Generate Final Report", current_mac, status, config)
 
-    print(f"[+] Verified Restored Original MAC: {orig_mac}")
-    return log_data
+
+def display_status_header(config):
+    """Display status banner."""
+    _, current_mac = get_wifi_adapter_info()
+    status = get_mac_status(current_mac, config)
+
+    print("\n" + "=" * 55)
+    print("       MAC ADDRESS SECURITY TOOL (PHASE 3)")
+    print("=" * 55)
+    print(f"Adapter       : {config.get('adapter')}")
+    print(f"Original MAC  : {config.get('original_mac')}")
+    print(f"Spoofed MAC   : {config.get('spoofed_mac')} (SMAC Target)")
+    print(f"Current MAC   : {current_mac if current_mac else 'Detection Failed'}")
+    print(f"Status        : {status}")
+    print("=" * 55)
+    return current_mac, status
+
+
+def run_cli_menu():
+    """Interactive CLI menu runner."""
+    config = load_or_create_config()
+
+    while True:
+        display_status_header(config)
+        print("\nMenu Options:")
+        print("1. Check Current MAC Address")
+        print("2. Verify Spoofed MAC Address (0C-0C-0C-0C-0C-01)")
+        print("3. Verify Restoration to Original MAC")
+        print("4. View Experiment History Log")
+        print("5. Generate Phase 3 Report (CSV & Excel)")
+        print("6. Re-detect & Update Baseline Configuration")
+        print("7. Exit")
+        print("-" * 55)
+
+        choice = input("Enter choice (1-7): ").strip()
+
+        if choice == "1":
+            view_current_mac()
+        elif choice == "2":
+            change_mac_address()
+        elif choice == "3":
+            restore_original_mac()
+        elif choice == "4":
+            if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
+                df = pd.read_csv(LOG_FILE)
+                print("\n" + df.to_string(index=False))
+            else:
+                print("\n[!] No logs recorded yet.")
+        elif choice == "5":
+            generate_reports(config)
+        elif choice == "6":
+            adapter, mac = get_wifi_adapter_info()
+            if mac:
+                config["adapter"] = adapter
+                config["original_mac"] = mac
+                save_config(config)
+                print(f"\n[+] Updated config baseline to MAC: {mac}")
+        elif choice == "7":
+            print("\nExiting MAC Security Suite.")
+            break
+        else:
+            print("\n[!] Invalid selection.")
+
+        input("\nPress Enter to continue...")
 
 
 if __name__ == "__main__":
-    print("=== Phase 3 MAC Address Spoofing Suite ===")
-    view_current_mac("Wi-Fi")
-    print("\nExecuting MAC Address Change...")
-    change_mac_address("Wi-Fi")
-    print("\nExecuting MAC Address Restoration...")
-    restore_original_mac("Wi-Fi")
+    run_cli_menu()
