@@ -88,6 +88,26 @@ DNS_QTYPE_NAMES = {
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_JSON_PATH = os.path.join(SCRIPT_DIR, "packet_analysis.json")
 DEFAULT_CSV_PATH = os.path.join(SCRIPT_DIR, "packet_analysis.csv")
+ALLOWED_PCAP_EXTENSIONS = {".pcap", ".pcapng"}
+
+
+def resolve_safe_pcap_path(filepath: Optional[str]) -> Optional[str]:
+    """Return a validated PCAP path from module2_packet_capture directory, else None."""
+    if not filepath:
+        return None
+    candidate_name = os.path.basename(os.path.expanduser(filepath).strip())
+    if candidate_name in {"", ".", ".."}:
+        return None
+    _, ext = os.path.splitext(candidate_name.lower())
+    if ext not in ALLOWED_PCAP_EXTENSIONS:
+        return None
+    try:
+        for entry in os.listdir(SCRIPT_DIR):
+            if entry.lower() == candidate_name.lower():
+                return os.path.join(SCRIPT_DIR, entry)
+    except OSError:
+        return None
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -760,11 +780,12 @@ def analyze_pcap_file(filepath: str) -> List[Dict[str, Any]]:
     Returns:
         List of normalized packet record dicts.
     """
-    if not os.path.exists(filepath):
-        print(f"[!] PCAP file not found: {filepath}")
+    safe_filepath = resolve_safe_pcap_path(filepath)
+    if not safe_filepath:
+        print("[!] Invalid PCAP file path. Provide a .pcap or .pcapng file within the project directory.")
         sys.exit(1)
 
-    print(f"[*] Analyzing PCAP/PCAPNG file: {filepath}")
+    print(f"[*] Analyzing PCAP/PCAPNG file: {safe_filepath}")
 
     packets: List[Dict[str, Any]] = []
 
@@ -773,7 +794,7 @@ def analyze_pcap_file(filepath: str) -> List[Dict[str, Any]]:
         print("[*] Using PyShark for file analysis...")
         try:
             cap = pyshark.FileCapture(
-                filepath,
+                safe_filepath,
                 keep_packets=False,
                 use_json=True,
                 include_raw=False,
@@ -796,7 +817,7 @@ def analyze_pcap_file(filepath: str) -> List[Dict[str, Any]]:
     if SCAPY_AVAILABLE:
         print("[*] Using Scapy for file analysis...")
         try:
-            raw_packets = rdpcap(filepath)
+            raw_packets = rdpcap(safe_filepath)
             for idx, pkt in enumerate(raw_packets, start=1):
                 rec = normalize_scapy_packet(pkt, idx)
                 if rec is not None:
@@ -1103,10 +1124,11 @@ def analyze_pcap(pcap_filepath: Optional[str] = None) -> Dict[str, Any]:
     packets: List[Dict[str, Any]] = []
     source_label = "unknown"
 
-    if pcap_filepath and os.path.exists(pcap_filepath):
-        print(f"[Module 2] Analyzing PCAP file: {pcap_filepath}")
-        packets = analyze_pcap_file(pcap_filepath)
-        source_label = f"pcap:{os.path.basename(pcap_filepath)}"
+    safe_pcap_path = resolve_safe_pcap_path(pcap_filepath)
+    if safe_pcap_path:
+        print(f"[Module 2] Analyzing PCAP file: {safe_pcap_path}")
+        packets = analyze_pcap_file(safe_pcap_path)
+        source_label = f"pcap:{os.path.basename(safe_pcap_path)}"
     else:
         # Try a short live capture; swallow errors so Flask doesn't crash
         if SCAPY_AVAILABLE:

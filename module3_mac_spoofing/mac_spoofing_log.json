@@ -1,8 +1,8 @@
 {
     "adapter_name": "Wi-Fi",
     "original_mac": "F4:6D:04:88:99:AA",
-    "current_mac": "F4:6D:04:88:99:AA",
-    "is_spoofed": false,
+    "current_mac": "02:B3:EE:F9:13:1A",
+    "is_spoofed": true,
     "history": [
         {
             "timestamp": "2026-08-10T11:35:44.515215",
@@ -20,6 +20,15 @@
             "restored_mac": "F4:6D:04:88:99:AA",
             "adapter_restarted": true,
             "verified": true
+        },
+        {
+            "timestamp": "2026-08-10T15:36:13.172543",
+            "action": "CHANGE_MAC",
+            "adapter": "Wi-Fi",
+            "new_mac": "02:B3:EE:F9:13:1A",
+            "adapter_restarted": true,
+            "verified": true,
+            "admin_elevated": false
         }
     ]
 }

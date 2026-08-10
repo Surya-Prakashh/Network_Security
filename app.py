@@ -11,11 +11,17 @@ Interfacing with:
 
 import os
 import json
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, Response
 from flask_socketio import SocketIO
 
 # Import local modules
-from module1_network_discovery.scanner import run_nmap_live_scan
+from module1_network_discovery.scanner import (
+    run_single_nmap_command,
+    stream_nmap_command_events,
+    get_network_interfaces_info,
+    get_command_history,
+    clear_command_history
+)
 from module2_packet_capture.sniffer import analyze_pcap, capture_engine, get_interfaces
 from module3_mac_spoofing.mac_changer import (
     get_network_adapters, 
@@ -113,6 +119,15 @@ def api_module1_stream_scan():
     return Response(stream_nmap_command_events(cmd_type, target), mimetype="text/event-stream")
 
 
+@app.route("/api/module1/history", methods=["GET", "DELETE"])
+def api_module1_history():
+    """Fetch or clear command execution history log entries."""
+    if request.method == "DELETE":
+        clear_command_history()
+        return jsonify({"status": "success", "message": "Command history cleared."})
+    return jsonify(get_command_history())
+
+
 @app.route("/api/module1/terminal", methods=["GET"])
 def api_module1_terminal():
     """Returns raw Nmap stdout terminal log."""
@@ -190,7 +205,8 @@ def api_module2_export():
             "csv_path": "module2_packet_capture/packet_analysis.csv",
         })
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        print(f"[!] Module 2 export failed: {exc}")
+        return jsonify({"ok": False, "error": "Failed to export capture data."}), 500
 
 
 @app.route("/api/module2/status", methods=["GET"])
@@ -249,7 +265,7 @@ def download_file(filename):
 if __name__ == "__main__":
     scan_file = os.path.join(BASE_DIR, "module1_network_discovery", "scan_results.json")
     if not os.path.exists(scan_file):
-        run_nmap_live_scan("127.0.0.1")
+        run_single_nmap_command("service_scan", "127.0.0.1")
 
     analyze_security_posture()
 

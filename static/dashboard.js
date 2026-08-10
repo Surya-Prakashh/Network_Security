@@ -303,8 +303,67 @@ function renderScanResults(data) {
     renderPortChart(data.hosts || []);
 }
 
+let commandHistoryList = [];
+
+function loadCommandHistory() {
+    fetch("/api/module1/history")
+        .then(res => res.json())
+        .then(data => {
+            commandHistoryList = data || [];
+            const tbody = document.getElementById("commandHistoryTableBody");
+            if (!tbody) return;
+
+            if (commandHistoryList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#9ca3af;">No command history logged yet. Run a step command above to generate logs.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = "";
+            commandHistoryList.forEach((item, idx) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><strong>#${item.id || (idx + 1)}</strong></td>
+                    <td style="font-size:0.8rem; color:#9ca3af;">${item.timestamp}</td>
+                    <td><code style="color:#00ff66;">${item.command_executed}</code></td>
+                    <td><span class="badge badge-info">${item.target}</span></td>
+                    <td><span class="badge badge-success">${item.total_hosts} host(s)</span></td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="viewHistoryLog(${idx})">
+                            <i class="fa-solid fa-terminal"></i> View Output
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => console.error("Error loading command history:", err));
+}
+
+function viewHistoryLog(index) {
+    if (commandHistoryList[index] && commandHistoryList[index].terminal_output) {
+        const item = commandHistoryList[index];
+        const consoleElem = document.getElementById("nmapTerminalConsole");
+        consoleElem.textContent = item.terminal_output;
+        document.getElementById("m1-engine-badge").textContent = `History: ${item.command_executed}`;
+        showToast(`Loaded terminal log for #${item.id} (${item.command_executed})`);
+        consoleElem.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+function clearCommandHistoryLog() {
+    if (confirm("Are you sure you want to clear all command history logs?")) {
+        fetch("/api/module1/history", { method: "DELETE" })
+            .then(res => res.json())
+            .then(() => {
+                showToast("Command history cleared!");
+                loadCommandHistory();
+            });
+    }
+}
+
 function loadModule1Data() {
     loadNetworkInfo();
+    loadCommandHistory();
     fetch("/api/module1/scan")
         .then(res => res.json())
         .then(data => {
@@ -368,6 +427,7 @@ function executeNmapCmd(cmdType) {
                 showToast(`Nmap ${cmdType.replace('_', ' ')} completed successfully!`, "success");
                 loadOverviewData();
                 loadPhase4Data();
+                loadCommandHistory();
                 activeEventSource.close();
                 activeEventSource = null;
             }
@@ -394,6 +454,7 @@ function executeNmapCmd(cmdType) {
             showToast(`Nmap ${cmdType.replace('_', ' ')} completed!`, "success");
             loadOverviewData();
             loadPhase4Data();
+            loadCommandHistory();
         })
         .catch(e => {
             updateProgressBar(0, "Scan Failed");
