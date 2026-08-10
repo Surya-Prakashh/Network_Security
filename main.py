@@ -1,6 +1,6 @@
 """
 Main entry point for Phase 3 MAC Address Security & Verification Suite.
-Invokes the CLI menu from module3_mac_spoofing.mac_changer.
+Invokes the interactive CLI menu from module3_mac_spoofing.mac_changer.
 """
 
 import sys
