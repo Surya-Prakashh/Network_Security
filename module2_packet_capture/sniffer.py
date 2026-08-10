@@ -1258,3 +1258,493 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# ---------------------------------------------------------------------------
+# Real-Time Capture Engine (Flask-SocketIO integration)
+# ---------------------------------------------------------------------------
+
+import threading  # re-import at module level for clarity (already available)
+import datetime as _dt
+
+MAX_UI_PACKETS = 500  # Maximum rows kept in the browser-facing recent_packets list
+
+
+def get_interfaces() -> List[str]:
+    """
+    Return a list of available network interface names.
+    Uses Scapy's ifaces if available; falls back to a sensible default.
+    """
+    if not SCAPY_AVAILABLE:
+        return ["Wi-Fi", "Ethernet"]
+    try:
+        from scapy.interfaces import IFACES
+        # Return friendly names where available
+        names: List[str] = []
+        for iface in IFACES.values():
+            name = getattr(iface, "name", None) or getattr(iface, "description", None)
+            if name:
+                names.append(name)
+        # Deduplicate while preserving order
+        seen: set = set()
+        unique: List[str] = []
+        for n in names:
+            if n not in seen:
+                seen.add(n)
+                unique.append(n)
+        return unique if unique else ["Wi-Fi", "Ethernet"]
+    except Exception:
+        try:
+            from scapy.arch import get_if_list
+            return get_if_list()
+        except Exception:
+            return ["Wi-Fi", "Ethernet"]
+
+
+def _empty_capture_state() -> Dict[str, Any]:
+    """Return a fresh, zeroed capture state dict."""
+    return {
+        "running": False,
+        "status": "Idle",          # "Idle" | "Capturing" | "Stopped" | "Error"
+        "start_time": None,
+        "stop_time": None,
+        "packet_count": 0,         # Total packets seen (never capped)
+        "protocol_counts": {
+            "TCP": 0, "UDP": 0, "DNS": 0,
+            "HTTPS/TLS": 0, "ICMP": 0, "HTTP": 0, "QUIC": 0, "OTHER": 0,
+        },
+        "tcp_handshake_pending": {},   # key -> pending handshake dict (internal)
+        "tcp_handshakes": [],          # completed + incomplete list for UI
+        "dns_queries": [],             # list of DNS query dicts for UI
+        "dns_seen": set(),             # (domain, qtype) set to detect unique queries
+        "icmp_stats": {"echo_request": 0, "echo_reply": 0, "other": 0},
+        "recent_packets": [],          # capped at MAX_UI_PACKETS for UI
+        "all_packets": [],             # full list for export
+        "error": None,
+    }
+
+
+def _update_handshake_live(rec: Dict[str, Any], state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Incrementally update the TCP handshake tracker in state using a single packet record.
+    Returns a handshake event dict if something changed (new, updated, or completed),
+    or None if nothing notable happened.
+
+    The returned dict includes a 'event' key: "new_syn" | "syn_ack" | "complete"
+    so the caller knows what to emit to the browser.
+    """
+    proto = rec.get("protocol")
+    if proto not in ("TCP", "HTTPS/TLS", "HTTP"):
+        return None
+
+    flags = rec.get("tcp_flags") or ""
+    flag_set = set(flags.split("-")) if flags else set()
+    src_ip = rec.get("source_ip")
+    dst_ip = rec.get("destination_ip")
+    sport = rec.get("source_port")
+    dport = rec.get("destination_port")
+    seq = rec.get("tcp_sequence")
+    ack = rec.get("tcp_acknowledgment")
+
+    if None in (src_ip, dst_ip, sport, dport):
+        return None
+
+    pending = state["tcp_handshake_pending"]
+
+    # ── Step 1: Pure SYN ────────────────────────────────────────────────────
+    if "SYN" in flag_set and "ACK" not in flag_set:
+        conn_key = (src_ip, sport, dst_ip, dport)
+        entry = {
+            "client": src_ip,
+            "client_port": sport,
+            "server": dst_ip,
+            "server_port": dport,
+            "port": dport,
+            "syn": True,
+            "syn_ack": False,
+            "ack": False,
+            "complete": False,
+            "status": "SYN",
+            "syn_seq": seq,
+            "packet_numbers": [rec.get("packet_number")],
+        }
+        pending[conn_key] = entry
+        # Add or update in tcp_handshakes list
+        _upsert_handshake(state, conn_key, entry)
+        return {"event": "new_syn", "key": str(conn_key), "data": _hs_for_ui(entry)}
+
+    # ── Step 2: SYN-ACK ─────────────────────────────────────────────────────
+    elif "SYN" in flag_set and "ACK" in flag_set:
+        conn_key = (dst_ip, dport, src_ip, sport)
+        if conn_key in pending:
+            entry = pending[conn_key]
+            if entry["syn"] and not entry["syn_ack"]:
+                entry["syn_ack"] = True
+                entry["syn_ack_seq"] = seq
+                entry["status"] = "SYN-ACK"
+                entry["packet_numbers"].append(rec.get("packet_number"))
+                _upsert_handshake(state, conn_key, entry)
+                return {"event": "syn_ack", "key": str(conn_key), "data": _hs_for_ui(entry)}
+
+    # ── Step 3: Pure ACK (no SYN/FIN/RST) ──────────────────────────────────
+    elif "ACK" in flag_set and "SYN" not in flag_set and "FIN" not in flag_set and "RST" not in flag_set:
+        conn_key = (src_ip, sport, dst_ip, dport)
+        if conn_key in pending:
+            entry = pending[conn_key]
+            if entry["syn"] and entry["syn_ack"] and not entry["ack"]:
+                syn_ack_seq = entry.get("syn_ack_seq")
+                if syn_ack_seq is None or (ack is not None and ack == syn_ack_seq + 1):
+                    entry["ack"] = True
+                    entry["complete"] = True
+                    entry["status"] = "COMPLETE"
+                    entry["packet_numbers"].append(rec.get("packet_number"))
+                    _upsert_handshake(state, conn_key, entry)
+                    del pending[conn_key]
+                    return {"event": "complete", "key": str(conn_key), "data": _hs_for_ui(entry)}
+
+    return None
+
+
+def _hs_for_ui(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert internal handshake entry to a UI-friendly dict."""
+    return {
+        "client": entry["client"],
+        "server": entry["server"],
+        "port": entry["port"],
+        "status": entry["status"],
+        "syn": entry["syn"],
+        "syn_ack": entry["syn_ack"],
+        "ack": entry["ack"],
+        "complete": entry["complete"],
+    }
+
+
+def _upsert_handshake(state: Dict[str, Any], conn_key: tuple, entry: Dict[str, Any]) -> None:
+    """Insert or update a handshake record in the tcp_handshakes list."""
+    key_str = str(conn_key)
+    for i, hs in enumerate(state["tcp_handshakes"]):
+        if hs.get("_key") == key_str:
+            state["tcp_handshakes"][i] = {"_key": key_str, **_hs_for_ui(entry)}
+            return
+    state["tcp_handshakes"].append({"_key": key_str, **_hs_for_ui(entry)})
+
+
+class CaptureEngine:
+    """
+    Thread-safe real-time packet capture engine for Flask-SocketIO integration.
+
+    Usage:
+        engine = CaptureEngine()
+        engine.start("Wi-Fi", socketio_instance)
+        ...
+        engine.stop()
+        data = engine.export_data()  # returns JSON-ready dict
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._state: Dict[str, Any] = _empty_capture_state()
+        self._socketio = None  # set on start()
+
+    # ── Public API ───────────────────────────────────────────────────────────
+
+    def start(self, interface: str, socketio_instance) -> Dict[str, Any]:
+        """
+        Start real-time capture on the given interface.
+        Returns {"ok": True} or {"ok": False, "error": "..."}.
+        """
+        with self._lock:
+            if self._state["running"]:
+                return {"ok": False, "error": "Capture already running."}
+            if not SCAPY_AVAILABLE:
+                return {"ok": False, "error": "Scapy is not installed. Run: pip install scapy"}
+
+        self._socketio = socketio_instance
+        self._stop_event.clear()
+
+        self._thread = threading.Thread(
+            target=self._capture_worker,
+            args=(interface,),
+            daemon=True,
+            name="CaptureEngine-worker",
+        )
+        self._thread.start()
+        return {"ok": True}
+
+    def stop(self) -> Dict[str, Any]:
+        """Signal the capture thread to stop. Returns current summary."""
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5.0)
+        with self._lock:
+            self._state["running"] = False
+            if self._state["status"] == "Capturing":
+                self._state["status"] = "Stopped"
+                self._state["stop_time"] = _dt.datetime.now().strftime("%H:%M:%S")
+        return {"ok": True, "packet_count": self._state["packet_count"]}
+
+    def clear(self) -> None:
+        """Reset all capture state (does not stop a running capture)."""
+        with self._lock:
+            was_running = self._state["running"]
+            self._state = _empty_capture_state()
+            if was_running:
+                self._state["running"] = True
+                self._state["status"] = "Capturing"
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return a lightweight status snapshot (no packet list)."""
+        with self._lock:
+            s = self._state
+            return {
+                "running": s["running"],
+                "status": s["status"],
+                "packet_count": s["packet_count"],
+                "protocol_counts": dict(s["protocol_counts"]),
+                "dns_count": len(s["dns_queries"]),
+                "handshake_count": sum(1 for h in s["tcp_handshakes"] if h.get("complete")),
+                "icmp_stats": dict(s["icmp_stats"]),
+                "start_time": s["start_time"],
+                "stop_time": s.get("stop_time"),
+                "error": s["error"],
+            }
+
+    def get_recent_packets(self) -> List[Dict[str, Any]]:
+        """Return a copy of the recent packet list (capped at MAX_UI_PACKETS)."""
+        with self._lock:
+            return list(self._state["recent_packets"])
+
+    def export_data(self) -> Dict[str, Any]:
+        """
+        Build a complete output dict from in-memory state (same structure as
+        build_output()) and save JSON + CSV files.
+        Returns the output dict.
+        """
+        with self._lock:
+            packets_snapshot = list(self._state["all_packets"])
+            state_snapshot = {
+                "protocol_counts": dict(self._state["protocol_counts"]),
+                "tcp_handshakes": [
+                    {k: v for k, v in hs.items() if k != "_key"}
+                    for hs in self._state["tcp_handshakes"]
+                ],
+                "dns_queries": list(self._state["dns_queries"]),
+                "icmp_stats": dict(self._state["icmp_stats"]),
+                "start_time": self._state["start_time"],
+                "stop_time": self._state.get("stop_time"),
+                "packet_count": self._state["packet_count"],
+            }
+
+        # Build dashboard-compatible output using existing build_output()
+        data = build_output(packets_snapshot, source_label="live:realtime")
+
+        # Overlay real handshake/dns data from incremental tracker
+        data["tcp_handshakes"] = state_snapshot["tcp_handshakes"]
+        data["dns_queries"] = state_snapshot["dns_queries"]
+        data["capture_summary"]["icmp_count"] = (
+            state_snapshot["icmp_stats"]["echo_request"]
+            + state_snapshot["icmp_stats"]["echo_reply"]
+            + state_snapshot["icmp_stats"]["other"]
+        )
+        data["capture_summary"]["start_time"] = state_snapshot["start_time"]
+        data["capture_summary"]["end_time"] = state_snapshot["stop_time"]
+
+        # Save to disk
+        save_json(data, DEFAULT_JSON_PATH)
+        save_csv(data["packets"], DEFAULT_CSV_PATH)
+        return data
+
+    # ── Private: capture worker ──────────────────────────────────────────────
+
+    def _capture_worker(self, interface: str) -> None:
+        """Runs in a background thread. Opens Scapy sniff() and processes packets."""
+        # Update status
+        with self._lock:
+            self._state["running"] = True
+            self._state["status"] = "Capturing"
+            self._state["start_time"] = _dt.datetime.now().strftime("%H:%M:%S")
+            self._state["error"] = None
+
+        self._emit("m2_status", {
+            "status": "Capturing",
+            "interface": interface,
+            "start_time": self._state["start_time"],
+        })
+
+        packet_idx = [0]  # mutable counter for closure
+
+        def _on_packet(pkt):
+            if self._stop_event.is_set():
+                return
+
+            packet_idx[0] += 1
+            idx = packet_idx[0]
+
+            rec = normalize_scapy_packet(pkt, idx)
+            if rec is None:
+                return  # Non-IP packet — skip
+
+            # ── Update shared state (Lock) ───────────────────────────────────
+            with self._lock:
+                self._state["packet_count"] = idx
+
+                # Protocol counters
+                proto = rec.get("protocol") or "OTHER"
+                proto_key = proto if proto in self._state["protocol_counts"] else "OTHER"
+                self._state["protocol_counts"][proto_key] = (
+                    self._state["protocol_counts"].get(proto_key, 0) + 1
+                )
+
+                # ICMP stats
+                if proto == "ICMP":
+                    icmp_t = rec.get("icmp_type")
+                    if icmp_t == 8:
+                        self._state["icmp_stats"]["echo_request"] += 1
+                    elif icmp_t == 0:
+                        self._state["icmp_stats"]["echo_reply"] += 1
+                    else:
+                        self._state["icmp_stats"]["other"] += 1
+
+                # DNS queries (unique per domain+type)
+                if rec.get("dns_query"):
+                    key = (rec["dns_query"], rec.get("dns_query_type"))
+                    if key not in self._state["dns_seen"]:
+                        self._state["dns_seen"].add(key)
+                    dns_entry = {
+                        "timestamp": rec.get("timestamp", ""),
+                        "domain": rec["dns_query"],
+                        "query_type": rec.get("dns_query_type", "A"),
+                        "source_ip": rec.get("source_ip", ""),
+                        "dns_server": rec.get("destination_ip", ""),
+                        "response": rec.get("dns_response"),
+                    }
+                    self._state["dns_queries"].append(dns_entry)
+
+                # TCP handshake (incremental)
+                hs_event = _update_handshake_live(rec, self._state)
+
+                # Recent packets (capped)
+                pkt_ui = self._build_ui_packet(rec)
+                if len(self._state["recent_packets"]) >= MAX_UI_PACKETS:
+                    self._state["recent_packets"].pop(0)
+                self._state["recent_packets"].append(pkt_ui)
+
+                # Full list for export
+                self._state["all_packets"].append(rec)
+
+                # Snapshot for emit (outside lock)
+                proto_counts_snap = dict(self._state["protocol_counts"])
+                icmp_snap = dict(self._state["icmp_stats"])
+                total_snap = self._state["packet_count"]
+
+            # ── Emit to browser (outside lock) ──────────────────────────────
+            self._emit("m2_packet", pkt_ui)
+            self._emit("m2_stats", {
+                "total": total_snap,
+                "protocol_counts": proto_counts_snap,
+                "icmp_stats": icmp_snap,
+            })
+
+            if rec.get("dns_query"):
+                self._emit("m2_dns", dns_entry)
+
+            if hs_event:
+                self._emit("m2_handshake", hs_event)
+
+        # ── Launch Scapy sniff ───────────────────────────────────────────────
+        try:
+            sniff(
+                iface=interface,
+                prn=_on_packet,
+                store=False,
+                stop_filter=lambda p: self._stop_event.is_set(),
+            )
+        except PermissionError:
+            err = (
+                "Permission denied. Run the application as Administrator (Windows) "
+                "or root (Linux/macOS) to capture packets."
+            )
+            self._set_error(err)
+        except OSError as exc:
+            err = f"Cannot open interface '{interface}': {exc}"
+            self._set_error(err)
+        except Exception as exc:
+            err = f"Capture error: {exc}"
+            self._set_error(err)
+        finally:
+            with self._lock:
+                self._state["running"] = False
+                if self._state["status"] == "Capturing":
+                    self._state["status"] = "Stopped"
+                    self._state["stop_time"] = _dt.datetime.now().strftime("%H:%M:%S")
+            self._emit("m2_status", {
+                "status": self._state["status"],
+                "packet_count": self._state["packet_count"],
+                "error": self._state["error"],
+            })
+
+    def _set_error(self, message: str) -> None:
+        with self._lock:
+            self._state["error"] = message
+            self._state["status"] = "Error"
+            self._state["running"] = False
+        print(f"[CaptureEngine] ERROR: {message}")
+
+    def _emit(self, event: str, data: Any) -> None:
+        """Thread-safe SocketIO emit (ignores errors to avoid crashing the capture thread)."""
+        if self._socketio is None:
+            return
+        try:
+            self._socketio.emit(event, data, namespace="/")
+        except Exception as exc:
+            print(f"[CaptureEngine] SocketIO emit error ({event}): {exc}")
+
+    @staticmethod
+    def _build_ui_packet(rec: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert an internal packet record to the UI wire format."""
+        flags = rec.get("tcp_flags") or ""
+        flag_set = set(flags.split("-")) if flags else set()
+
+        tcp_handshake_str = None
+        if "SYN" in flag_set and "ACK" not in flag_set:
+            tcp_handshake_str = "SYN"
+        elif "SYN" in flag_set and "ACK" in flag_set:
+            tcp_handshake_str = "SYN-ACK"
+        elif "ACK" in flag_set and "SYN" not in flag_set and "FIN" not in flag_set:
+            if rec.get("protocol") in ("TCP", "HTTPS/TLS", "HTTP"):
+                tcp_handshake_str = "ACK"
+
+        dns_lookup = None
+        if rec.get("dns_query"):
+            dns_lookup = {
+                "query_name": rec["dns_query"],
+                "query_type": rec.get("dns_query_type"),
+                "response_ip": rec.get("dns_response"),
+            }
+
+        return {
+            "id": rec.get("packet_number"),
+            "timestamp": rec.get("timestamp", ""),
+            "src_ip": rec.get("source_ip", ""),
+            "dst_ip": rec.get("destination_ip", ""),
+            "protocol": rec.get("protocol", ""),
+            "length": rec.get("packet_length", 0),
+            "source_port": rec.get("source_port"),
+            "destination_port": rec.get("destination_port"),
+            "tcp_flags": flags,
+            "tcp_handshake": tcp_handshake_str,
+            "dns_lookup": dns_lookup,
+            "dns_query": rec.get("dns_query"),
+            "icmp_type": rec.get("icmp_type"),
+            "icmp_code": rec.get("icmp_code"),
+            "tls_version": rec.get("tls_version"),
+            "http_host": rec.get("http_host"),
+            "http_method": rec.get("http_method"),
+            "details": rec.get("info", ""),
+        }
+
+
+# Module-level singleton — imported by app.py
+capture_engine = CaptureEngine()

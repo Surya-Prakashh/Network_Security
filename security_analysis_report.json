@@ -1,34 +1,56 @@
 {
-    "generated_at": "2026-08-10T14:54:46.193320",
+    "generated_at": "2026-08-10T15:21:04.817592",
     "summary": {
         "total_hosts_evaluated": 0,
         "unnecessary_open_ports_count": 0,
         "insecure_protocols_found": [
-            "DNS",
-            "HTTP"
+            "MSRPC",
+            "SMB",
+            "FTP",
+            "DNS"
         ],
-        "recommended_firewall_rules_count": 0,
-        "security_score": 80
+        "recommended_firewall_rules_count": 3,
+        "security_score": 15
     },
     "unnecessary_ports": [],
     "insecure_protocols": [
+        {
+            "protocol": "MSRPC",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Enforce encryption."
+            }
+        },
+        {
+            "protocol": "SMB",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Enforce encryption."
+            }
+        },
+        {
+            "protocol": "FTP",
+            "details": {
+                "severity": "High",
+                "mitigation": "Replace FTP with SFTP (SSH File Transfer Protocol) or FTPS."
+            }
+        },
         {
             "protocol": "DNS",
             "details": {
                 "severity": "Low",
                 "mitigation": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."
             }
-        },
-        {
-            "protocol": "HTTP",
-            "details": {
-                "severity": "Medium",
-                "mitigation": "Enforce encryption."
-            }
         }
     ],
     "recommended_firewall_rules": [],
     "security_improvements": [
+        {
+            "category": "Insecure Protocol: FTP",
+            "severity": "High",
+            "finding": "Detected plain-text FTP traffic across network.",
+            "action_item": "Replace FTP with SFTP (SSH File Transfer Protocol) or FTPS."
+        },
         {
             "category": "Insecure Protocol: DNS",
             "severity": "Low",
