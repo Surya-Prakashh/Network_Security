@@ -13,7 +13,7 @@
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/style.css?v=10">
+    <link rel="stylesheet" href="/static/style.css?v=25">
 </head>
 <body>
     <!-- Top Navigation Header -->
@@ -152,74 +152,152 @@
                     </div>
                 </div>
 
-                <!-- Network Interface Info (ipconfig) Card -->
-                <div class="control-card" style="flex-direction: column; align-items: flex-start; gap: 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 242, 254, 0.2);">
-                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                        <h3 style="font-size: 1.05rem; color: var(--accent-cyan); font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fa-solid fa-network-wired"></i> Step 1: Network Subnet Auto-Captured (ipconfig)
-                        </h3>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-secondary" style="padding: 0.35rem 0.8rem; font-size: 0.78rem;" onclick="viewRawIpconfig()">
-                                <i class="fa-solid fa-terminal"></i> Show Raw ipconfig Log
-                            </button>
-                            <button class="btn btn-outline" style="padding: 0.35rem 0.8rem; font-size: 0.78rem;" onclick="loadNetworkInfo()">
-                                <i class="fa-solid fa-rotate"></i> Re-Detect ipconfig
-                            </button>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 1.8rem; font-size: 0.88rem; color: var(--text-muted); flex-wrap: wrap; background: rgba(0,0,0,0.25); padding: 0.75rem 1rem; border-radius: 8px; width: 100%;">
-                        <span>IPv4 Address: <strong id="net-ip" style="color:#00f2fe;">Detecting...</strong></span>
-                        <span>Default Gateway: <strong id="net-gw" style="color:#fff;">Detecting...</strong></span>
-                        <span>Subnet Mask: <strong id="net-mask" style="color:#fff;">Detecting...</strong></span>
-                        <span>Auto-Captured Target Subnet: <strong id="net-cidr" style="color:var(--accent-yellow); font-size: 0.95rem;">Detecting...</strong></span>
-                    </div>
-                </div>
-
-                <!-- Dynamic Command Pipeline Bar -->
-                <div class="control-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08);">
-                    <div style="display: flex; flex-direction: column; gap: 0.85rem; width: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-                            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-                                <label for="targetSubnet"><strong style="color:#fff;">Target Host / Subnet:</strong></label>
-                                <input type="text" id="targetSubnet" value="" placeholder="Auto-captured from ipconfig..." style="width: 220px; font-weight: 600; color: #00f2fe; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,242,254,0.3);">
-                                
-                                <div style="display: flex; gap: 0.4rem; align-items: center;">
-                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Quick Target:</span>
-                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('cidr')">Subnet CIDR</button>
-                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('gw')">Gateway IP</button>
-                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('ip')">Local IP</button>
-                                </div>
-
-                                <label for="discoveredIpSelect" style="margin-left: 0.8rem;"><strong style="color:#fff;">Discovered Active Hosts:</strong></label>
-                                <select id="discoveredIpSelect" class="form-control" style="width: 240px; background: rgba(0,0,0,0.4); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onchange="document.getElementById('targetSubnet').value = this.value">
-                                    <option value="">(Run Ping Sweep to populate)</option>
-                                </select>
+                <!-- 2-Column Cyber HUD Section -->
+                <div class="m1-hud-row">
+                    <!-- Left: Step 1 Interface Info HUD -->
+                    <div class="m1-hud-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem;">
+                            <h3 style="font-size: 0.95rem; color: var(--accent-cyan); font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="m1-step-num">STEP 1</span> Interface Subnet Auto-Discovery
+                            </h3>
+                            <div style="display: flex; gap: 0.4rem;">
+                                <button class="btn btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="viewRawIpconfig()">
+                                    <i class="fa-solid fa-terminal"></i> ipconfig Log
+                                </button>
+                                <button class="btn btn-outline" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="loadNetworkInfo()">
+                                    <i class="fa-solid fa-rotate"></i> Refresh
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Command Sequence Step Buttons -->
-                        <div class="action-group" style="flex-wrap: wrap; gap: 0.6rem; margin-top: 0.4rem;">
-                            <button class="btn btn-primary" onclick="executeNmapCmd('ping_sweep')">
-                                <i class="fa-solid fa-radar"></i> Step 2: Ping Sweep (-sn)
+                        <div class="m1-metrics-grid">
+                            <div class="m1-metric-box">
+                                <span class="m1-metric-label"><i class="fa-solid fa-desktop"></i> IPv4 Address</span>
+                                <span class="m1-metric-value" id="net-ip">Detecting...</span>
+                            </div>
+                            <div class="m1-metric-box">
+                                <span class="m1-metric-label"><i class="fa-solid fa-network-wired"></i> Gateway IP</span>
+                                <span class="m1-metric-value" id="net-gw">Detecting...</span>
+                            </div>
+                            <div class="m1-metric-box">
+                                <span class="m1-metric-label"><i class="fa-solid fa-shield-halved"></i> Subnet Mask</span>
+                                <span class="m1-metric-value" id="net-mask">Detecting...</span>
+                            </div>
+                            <div class="m1-metric-box" style="border-color: rgba(0, 242, 254, 0.3);">
+                                <span class="m1-metric-label"><i class="fa-solid fa-crosshairs"></i> Target Subnet</span>
+                                <span class="m1-metric-value" id="net-cidr" style="color: var(--accent-yellow);">Detecting...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Target Subnet & Host Selector HUD -->
+                    <div class="m1-hud-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem;">
+                            <h3 style="font-size: 0.95rem; color: #fff; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fa-solid fa-sliders" style="color:var(--accent-cyan);"></i> Target Target Configuration
+                            </h3>
+                            <span class="badge badge-info" style="font-size: 0.75rem;">Interactive HUD</span>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label for="targetSubnet" style="font-size: 0.82rem; font-weight: 600; color: #fff;">Target IP / Subnet CIDR:</label>
+                                    <div style="display: flex; gap: 0.3rem;">
+                                        <button class="btn btn-outline" style="padding: 0.15rem 0.45rem; font-size: 0.68rem;" onclick="setTargetQuick('cidr')">Subnet</button>
+                                        <button class="btn btn-outline" style="padding: 0.15rem 0.45rem; font-size: 0.68rem;" onclick="setTargetQuick('gw')">Gateway</button>
+                                        <button class="btn btn-outline" style="padding: 0.15rem 0.45rem; font-size: 0.68rem;" onclick="setTargetQuick('ip')">Local IP</button>
+                                    </div>
+                                </div>
+                                <input type="text" id="targetSubnet" value="" placeholder="Auto-captured from ipconfig..." style="width: 100%; padding: 0.55rem 0.75rem; font-weight: 600; color: #00f2fe; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,242,254,0.3); border-radius: 8px;">
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                <label for="discoveredIpSelect" style="font-size: 0.82rem; font-weight: 600; color: #fff;">Discovered Active Target Host:</label>
+                                <select id="discoveredIpSelect" class="form-control" style="width: 100%; padding: 0.55rem 0.75rem; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;" onchange="document.getElementById('targetSubnet').value = this.value">
+                                    <option value="">(Run Step 2 Ping Sweep to discover active hosts)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6-Step Command Pipeline Matrix -->
+                <div style="margin-bottom: 0.75rem;">
+                    <h3 style="font-size: 1rem; color: #fff; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-list-check" style="color: var(--accent-cyan);"></i> Nmap Command Sequence Pipeline
+                    </h3>
+                    
+                    <div class="m1-steps-grid">
+                        <!-- Step 2 -->
+                        <div class="m1-step-card">
+                            <div class="m1-step-header">
+                                <span class="m1-step-num">STEP 2</span>
+                                <i class="fa-solid fa-radar m1-step-icon"></i>
+                            </div>
+                            <div class="m1-step-title">Network Ping Sweep</div>
+                            <div class="m1-step-desc">Scans subnet (nmap -sn) to discover all active online hosts without port scanning.</div>
+                            <button class="btn btn-primary m1-step-btn" onclick="executeNmapCmd('ping_sweep')">
+                                <i class="fa-solid fa-play"></i> Run Ping Sweep (-sn)
                             </button>
-                            <button class="btn btn-secondary" onclick="executeNmapCmd('basic_scan')">
-                                <i class="fa-solid fa-search"></i> Step 3: Basic Scan (nmap IP)
+                        </div>
+
+                        <!-- Step 3 -->
+                        <div class="m1-step-card">
+                            <div class="m1-step-header">
+                                <span class="m1-step-num">STEP 3</span>
+                                <i class="fa-solid fa-search m1-step-icon"></i>
+                            </div>
+                            <div class="m1-step-title">Basic TCP Port Scan</div>
+                            <div class="m1-step-desc">Scans selected target host to identify open TCP ports & active listening endpoints.</div>
+                            <button class="btn btn-secondary m1-step-btn" onclick="executeNmapCmd('basic_scan')">
+                                <i class="fa-solid fa-play"></i> Run Basic Port Scan
                             </button>
-                            <button class="btn btn-secondary" onclick="executeNmapCmd('service_scan')">
-                                <i class="fa-solid fa-gear"></i> Step 4: Service Versions (-sV)
+                        </div>
+
+                        <!-- Step 4 -->
+                        <div class="m1-step-card">
+                            <div class="m1-step-header">
+                                <span class="m1-step-num">STEP 4</span>
+                                <i class="fa-solid fa-gear m1-step-icon"></i>
+                            </div>
+                            <div class="m1-step-title">Service Version Detection</div>
+                            <div class="m1-step-desc">Probes open ports (nmap -sV) to determine exact software & daemon version numbers.</div>
+                            <button class="btn btn-secondary m1-step-btn" onclick="executeNmapCmd('service_scan')">
+                                <i class="fa-solid fa-play"></i> Service Versions (-sV)
                             </button>
-                            <button class="btn btn-secondary" onclick="executeNmapCmd('os_scan')">
-                                <i class="fa-solid fa-desktop"></i> Step 5: OS Detection (-O)
+                        </div>
+
+                        <!-- Step 5 -->
+                        <div class="m1-step-card">
+                            <div class="m1-step-header">
+                                <span class="m1-step-num">STEP 5</span>
+                                <i class="fa-solid fa-desktop m1-step-icon"></i>
+                            </div>
+                            <div class="m1-step-title">OS Fingerprinting</div>
+                            <div class="m1-step-desc">Analyzes TCP/IP stack responses (nmap -O) to fingerprint remote OS & kernel version.</div>
+                            <button class="btn btn-secondary m1-step-btn" onclick="executeNmapCmd('os_scan')">
+                                <i class="fa-solid fa-play"></i> OS Fingerprint (-O)
                             </button>
-                            <button class="btn btn-warning" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); border: none; color: #fff; font-weight: 700;" onclick="executeNmapCmd('aggressive_scan')">
-                                <i class="fa-solid fa-bolt"></i> Step 6: Aggressive Audit (-A)
+                        </div>
+
+                        <!-- Step 6 -->
+                        <div class="m1-step-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05);">
+                            <div class="m1-step-header">
+                                <span class="m1-step-num" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color:#fff;">STEP 6</span>
+                                <i class="fa-solid fa-bolt m1-step-icon" style="color: var(--accent-yellow);"></i>
+                            </div>
+                            <div class="m1-step-title" style="color: var(--accent-yellow);">Aggressive Security Audit</div>
+                            <div class="m1-step-desc">Full audit (nmap -A): OS detection, service versions, NSE script scan & traceroute.</div>
+                            <button class="btn btn-warning m1-step-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); border: none; color: #fff; font-weight: 700;" onclick="executeNmapCmd('aggressive_scan')">
+                                <i class="fa-solid fa-bolt"></i> Aggressive Audit (-A)
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Live Scan Percentage Progress Bar -->
-                <div class="control-card" id="scanProgressCard" style="display: flex; flex-direction: column; gap: 0.6rem; background: rgba(10, 16, 30, 0.8); border: 1px solid rgba(0, 242, 254, 0.25);">
+                <div class="control-card" id="scanProgressCard" style="display: flex; flex-direction: column; gap: 0.6rem; background: rgba(10, 16, 30, 0.8); border: 1px solid rgba(0, 242, 254, 0.25); margin-bottom: 1.25rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span style="font-size: 0.88rem; font-weight: 600; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
                             <i class="fa-solid fa-circle-notch fa-spin" id="scanSpinner" style="display:none; color:#00f2fe;"></i>
@@ -244,6 +322,40 @@
                         </div>
                     </div>
                     <pre id="nmapTerminalConsole" style="background: #060911; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; overflow-x: auto; max-height: 380px; white-space: pre-wrap; border: 1px solid rgba(0,255,102,0.15); box-shadow: inset 0 0 15px rgba(0,0,0,0.8);">Loading CLI output...</pre>
+                </div>
+
+                <!-- Command Execution History Log Archive Card -->
+                <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 242, 254, 0.25);">
+                    <div class="table-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); justify-content: space-between;">
+                        <h3 style="color:var(--accent-cyan); display:flex; align-items:center; gap:0.5rem; font-size: 1rem;">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Command Execution History Log Archive
+                        </h3>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="loadCommandHistory()">
+                                <i class="fa-solid fa-rotate"></i> Refresh History
+                            </button>
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; color:#ef4444;" onclick="clearCommandHistoryLog()">
+                                <i class="fa-solid fa-trash"></i> Clear Log History
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Timestamp</th>
+                                    <th>Command Executed</th>
+                                    <th>Target IP / Subnet</th>
+                                    <th>Hosts Found</th>
+                                    <th>View Log Output</th>
+                                </tr>
+                            </thead>
+                            <tbody id="commandHistoryTableBody">
+                                <tr><td colspan="6" style="text-align:center; color:#9ca3af;">Loading command history...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- Host Cards Grid -->
@@ -474,6 +586,6 @@
     <div id="toast" class="toast hidden"></div>
 
     <!-- Dashboard JS Script -->
-    <script src="/static/dashboard.js?v=15"></script>
+    <script src="/static/dashboard.js?v=25"></script>
 </body>
 </html>

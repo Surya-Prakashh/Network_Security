@@ -325,6 +325,8 @@ def run_single_nmap_command(cmd_type, target):
                         p["port"], p["protocol"], p["service"], p["version"]
                     ])
 
+    append_command_to_history(cmd_type, display_cmd, target, len(hosts_data), terminal_out)
+
     return scan_result
 
 
@@ -440,7 +442,74 @@ def stream_nmap_command_events(cmd_type, target):
                         p["port"], p["protocol"], p["service"], p["version"]
                     ])
 
+    append_command_to_history(cmd_type, display_cmd, target, len(hosts_data), collected_log)
+
     yield f"data: {json.dumps({'type': 'complete', 'percent': 100.0, 'result': scan_result})}\n\n"
+
+
+def append_command_to_history(cmd_type, command_executed, target, total_hosts, terminal_output):
+    """Appends an executed command entry to persistent command_history.json and execution_history.log."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    history_json_path = os.path.join(script_dir, "command_history.json")
+    history_log_path = os.path.join(script_dir, "execution_history.log")
+
+    history = []
+    if os.path.exists(history_json_path):
+        try:
+            with open(history_json_path, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        except Exception:
+            history = []
+
+    entry = {
+        "id": len(history) + 1,
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "cmd_type": cmd_type,
+        "command_executed": command_executed,
+        "target": target,
+        "total_hosts": total_hosts,
+        "terminal_output": terminal_output
+    }
+
+    history.insert(0, entry)  # latest first
+    history = history[:50]    # keep up to 50 entries
+
+    try:
+        with open(history_json_path, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=4)
+        
+        with open(history_log_path, "a", encoding="utf-8") as f:
+            f.write(f"\n{'='*70}\n[{entry['timestamp']}] COMMAND: {command_executed} (Target: {target})\n{'='*70}\n{terminal_output}\n")
+    except Exception as e:
+        print(f"[!] Error saving command history: {e}")
+
+    return entry
+
+
+def get_command_history():
+    """Returns the list of previously executed commands from command_history.json."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    history_json_path = os.path.join(script_dir, "command_history.json")
+    if os.path.exists(history_json_path):
+        try:
+            with open(history_json_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[!] Error reading command history: {e}")
+    return []
+
+
+def clear_command_history():
+    """Clears persistent command history."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    history_json_path = os.path.join(script_dir, "command_history.json")
+    try:
+        with open(history_json_path, "w", encoding="utf-8") as f:
+            json.dump([], f)
+        return True
+    except Exception as e:
+        print(f"[!] Error clearing history: {e}")
+        return False
 
 
 if __name__ == "__main__":

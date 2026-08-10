@@ -17,7 +17,9 @@ from flask import Flask, render_template, jsonify, request, send_from_directory,
 from module1_network_discovery.scanner import (
     run_single_nmap_command,
     stream_nmap_command_events,
-    get_network_interfaces_info
+    get_network_interfaces_info,
+    get_command_history,
+    clear_command_history
 )
 from module2_packet_capture.sniffer import analyze_pcap
 from module3_mac_spoofing.mac_changer import (
@@ -114,6 +116,15 @@ def api_module1_stream_scan():
     return Response(stream_nmap_command_events(cmd_type, target), mimetype="text/event-stream")
 
 
+@app.route("/api/module1/history", methods=["GET", "DELETE"])
+def api_module1_history():
+    """Fetch or clear command execution history log entries."""
+    if request.method == "DELETE":
+        clear_command_history()
+        return jsonify({"status": "success", "message": "Command history cleared."})
+    return jsonify(get_command_history())
+
+
 @app.route("/api/module1/terminal", methods=["GET"])
 def api_module1_terminal():
     """Returns raw Nmap stdout terminal log."""
@@ -129,12 +140,7 @@ def api_module2_packets():
     """Trigger or fetch Phase 2 Packet Capture results."""
     packet_file = os.path.join(BASE_DIR, "module2_packet_capture", "packet_analysis.json")
     if request.method == "POST":
-        data = request.json or {}
-        pcap_path = data.get("pcap")          # optional PCAP file path
-        # interface / count / duration are accepted but live capture from
-        # the web server requires Administrator privileges; the sniffer
-        # handles the graceful fallback internally.
-        res = analyze_pcap(pcap_filepath=pcap_path)
+        res = analyze_pcap()
         analyze_security_posture()
         return jsonify(res)
     
