@@ -165,56 +165,150 @@ function renderPortChart(hostsData) {
 }
 
 // TAB 2: Module 1 Network Discovery
+let currentNetInfo = null;
+let activeEventSource = null;
+
+function loadNetworkInfo() {
+    fetch("/api/network-info")
+        .then(res => res.json())
+        .then(net => {
+            currentNetInfo = net;
+            document.getElementById("net-ip").textContent = net.local_ip || "127.0.0.1";
+            document.getElementById("net-gw").textContent = net.default_gateway || "None";
+            document.getElementById("net-mask").textContent = net.subnet_mask || "255.255.255.0";
+            document.getElementById("net-cidr").textContent = net.subnet_cidr || "192.168.1.0/24";
+            
+            const tgtInput = document.getElementById("targetSubnet");
+            if (tgtInput && (!tgtInput.value || tgtInput.value === "127.0.0.1" || tgtInput.value === "192.168.1.0/24")) {
+                tgtInput.value = net.subnet_cidr || "192.168.160.0/19";
+            }
+        });
+}
+
+function setTargetQuick(type) {
+    if (!currentNetInfo) return;
+    const tgtInput = document.getElementById("targetSubnet");
+    if (!tgtInput) return;
+    
+    if (type === 'cidr') tgtInput.value = currentNetInfo.subnet_cidr;
+    else if (type === 'gw') tgtInput.value = currentNetInfo.default_gateway || currentNetInfo.local_ip;
+    else if (type === 'ip') tgtInput.value = currentNetInfo.local_ip;
+}
+
+function viewRawIpconfig() {
+    showToast("Retrieving raw ipconfig output...");
+    fetch("/api/network-info")
+        .then(res => res.json())
+        .then(net => {
+            const consoleElem = document.getElementById("nmapTerminalConsole");
+            consoleElem.textContent = `$ ipconfig\n\n${net.raw_ipconfig || 'No ipconfig output returned.'}`;
+            document.getElementById("m1-engine-badge").textContent = "ipconfig";
+        });
+}
+
+function updateDiscoveredHostDropdown(hosts) {
+    const select = document.getElementById("discoveredIpSelect");
+    if (!select) return;
+    
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Select Discovered Active Host --</option>';
+
+    if (!hosts || hosts.length === 0) {
+        select.innerHTML = '<option value="">(No active hosts found yet)</option>';
+        return;
+    }
+
+    hosts.forEach(h => {
+        const opt = document.createElement("option");
+        opt.value = h.ip;
+        opt.textContent = `${h.ip} (${h.hostname}) ${h.mac_address !== 'N/A' ? '- MAC: ' + h.mac_address : ''}`;
+        if (h.ip === currentVal) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+function updateProgressBar(percent, statusTitle) {
+    const pBar = document.getElementById("scanProgressBar");
+    const pBadge = document.getElementById("scanPercentBadge");
+    const sTitle = document.getElementById("scanStatusTitle");
+    const spinner = document.getElementById("scanSpinner");
+
+    const clampPct = Math.min(100, Math.max(0, parseFloat(percent) || 0)).toFixed(1);
+    
+    if (pBar) pBar.style.width = `${clampPct}%`;
+    if (pBadge) pBadge.textContent = `${clampPct}%`;
+
+    if (sTitle && statusTitle) sTitle.textContent = statusTitle;
+
+    if (spinner) {
+        spinner.style.display = (clampPct > 0 && clampPct < 100) ? "inline-block" : "none";
+    }
+}
+
+function renderScanResults(data) {
+    if (!data) return;
+
+    if (data.timestamp) {
+        const scanTimeElem = document.getElementById("m1-scan-time");
+        if (scanTimeElem) scanTimeElem.textContent = new Date(data.timestamp).toLocaleTimeString();
+    }
+
+    const engineElem = document.getElementById("m1-engine-badge");
+    if (engineElem) engineElem.textContent = data.scan_mode || "Live Real Nmap";
+
+    if (data.terminal_output) {
+        const consoleElem = document.getElementById("nmapTerminalConsole");
+        if (consoleElem) consoleElem.textContent = data.terminal_output;
+    }
+
+    updateDiscoveredHostDropdown(data.hosts || []);
+
+    const hostsGrid = document.getElementById("hostsGrid");
+    if (hostsGrid) {
+        hostsGrid.innerHTML = "";
+        (data.hosts || []).forEach(host => {
+            const card = document.createElement("div");
+            card.className = "host-card";
+
+            let portsHtml = "";
+            (host.ports || []).forEach(p => {
+                portsHtml += `
+                    <div class="port-pill">
+                        <span class="port-num">Port ${p.port}/${p.protocol}</span>
+                        <span>${p.service} (${p.version})</span>
+                    </div>
+                `;
+            });
+
+            card.innerHTML = `
+                <div class="host-header">
+                    <span class="host-ip">${host.ip}</span>
+                    <span class="host-status">${host.status.toUpperCase()}</span>
+                </div>
+                <div class="host-details">
+                    <div><strong>Hostname:</strong> ${host.hostname}</div>
+                    <div><strong>MAC Address:</strong> ${host.mac_address}</div>
+                    <div><strong>Vendor / Hardware:</strong> ${host.vendor}</div>
+                    <div><strong>Detected OS:</strong> ${host.os_details}</div>
+                </div>
+                <h4>Open Services (${(host.ports || []).length}):</h4>
+                <div class="ports-list" style="margin-top: 0.5rem;">
+                    ${portsHtml || '<p style="color:#9ca3af;">No open ports detected.</p>'}
+                </div>
+            `;
+            hostsGrid.appendChild(card);
+        });
+    }
+
+    renderPortChart(data.hosts || []);
+}
+
 function loadModule1Data() {
+    loadNetworkInfo();
     fetch("/api/module1/scan")
         .then(res => res.json())
         .then(data => {
-            document.getElementById("m1-scan-time").textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "N/A";
-            document.getElementById("m1-cmd-executed").textContent = data.command_executed || "nmap -sV -O -F 127.0.0.1";
-            document.getElementById("m1-engine-badge").textContent = data.scan_mode || "Live Real Nmap";
-
-            if (data.terminal_output) {
-                document.getElementById("nmapTerminalConsole").textContent = data.terminal_output;
-            } else {
-                fetchTerminalLog();
-            }
-
-            const hostsGrid = document.getElementById("hostsGrid");
-            hostsGrid.innerHTML = "";
-
-            (data.hosts || []).forEach(host => {
-                const card = document.createElement("div");
-                card.className = "host-card";
-
-                let portsHtml = "";
-                (host.ports || []).forEach(p => {
-                    portsHtml += `
-                        <div class="port-pill">
-                            <span class="port-num">Port ${p.port}/${p.protocol}</span>
-                            <span>${p.service} (${p.version})</span>
-                        </div>
-                    `;
-                });
-
-                card.innerHTML = `
-                    <div class="host-header">
-                        <span class="host-ip">${host.ip}</span>
-                        <span class="host-status">${host.status.toUpperCase()}</span>
-                    </div>
-                    <div class="host-details">
-                        <div><strong>Hostname:</strong> ${host.hostname}</div>
-                        <div><strong>MAC Address:</strong> ${host.mac_address}</div>
-                        <div><strong>Detected OS:</strong> ${host.os_details}</div>
-                    </div>
-                    <h4>Open Services (${(host.ports || []).length}):</h4>
-                    <div class="ports-list" style="margin-top: 0.5rem;">
-                        ${portsHtml || '<p style="color:#9ca3af;">No open ports detected.</p>'}
-                    </div>
-                `;
-                hostsGrid.appendChild(card);
-            });
-
-            renderPortChart(data.hosts || []);
+            renderScanResults(data);
         })
         .catch(err => console.error("Error loading Module 1:", err));
 }
@@ -229,26 +323,87 @@ function fetchTerminalLog() {
         });
 }
 
-function triggerNmapScan() {
-    const target = document.getElementById("targetSubnet").value || "127.0.0.1";
-    const scanType = document.getElementById("scanTypeSelect").value || "fast";
-    
-    showToast(`Executing Live Nmap Scan on: ${target}...`);
-    document.getElementById("nmapTerminalConsole").textContent = `$ nmap -sV -O ${scanType === 'full' ? '-p-' : '-F'} ${target}\n\n[Running live Nmap process on host... Please wait]`;
+function executeNmapCmd(cmdType) {
+    const targetInput = document.getElementById("targetSubnet");
+    const target = (targetInput && targetInput.value) ? targetInput.value.trim() : "127.0.0.1";
 
-    fetch("/api/module1/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: target, scan_type: scanType })
-    })
-    .then(res => res.json())
-    .then(data => {
-        showToast("Nmap Network Discovery Finished!", "success");
-        loadModule1Data();
-        loadOverviewData();
-        loadPhase4Data();
-    })
-    .catch(err => showToast("Scan execution failed.", "error"));
+    showToast(`Initiating Nmap ${cmdType.replace('_', ' ').toUpperCase()} on ${target}...`);
+
+    if (activeEventSource) {
+        activeEventSource.close();
+        activeEventSource = null;
+    }
+
+    updateProgressBar(0.0, `Executing ${cmdType.replace('_', ' ').toUpperCase()}...`);
+
+    const consoleElem = document.getElementById("nmapTerminalConsole");
+    consoleElem.textContent = `$ Initializing live stream on ${target}...\n`;
+
+    const streamUrl = `/api/module1/stream-scan?cmd_type=${encodeURIComponent(cmdType)}&target=${encodeURIComponent(target)}`;
+    activeEventSource = new EventSource(streamUrl);
+
+    activeEventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'start') {
+                consoleElem.textContent = `$ ${data.cmd}\n\n[Live Stream Started]\n`;
+                updateProgressBar(5.0, `Scanning target: ${target}`);
+            } else if (data.type === 'log') {
+                if (data.full_log) {
+                    consoleElem.textContent = data.full_log;
+                } else if (data.line) {
+                    consoleElem.textContent += data.line;
+                }
+                consoleElem.scrollTop = consoleElem.scrollHeight;
+
+                if (data.percent !== undefined) {
+                    updateProgressBar(data.percent, `Scanning ${target} (${data.percent}%)...`);
+                }
+            } else if (data.type === 'complete') {
+                updateProgressBar(100.0, `Scan Complete (100%)`);
+                if (data.result) {
+                    renderScanResults(data.result);
+                }
+                showToast(`Nmap ${cmdType.replace('_', ' ')} completed successfully!`, "success");
+                loadOverviewData();
+                loadPhase4Data();
+                activeEventSource.close();
+                activeEventSource = null;
+            }
+        } catch (err) {
+            console.error("SSE parse error:", err);
+        }
+    };
+
+    activeEventSource.onerror = function(err) {
+        console.warn("SSE connection error, falling back to POST API:", err);
+        if (activeEventSource) {
+            activeEventSource.close();
+            activeEventSource = null;
+        }
+        fetch("/api/module1/scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cmd_type: cmdType, target: target })
+        })
+        .then(res => res.json())
+        .then(data => {
+            updateProgressBar(100.0, "Scan Complete");
+            renderScanResults(data);
+            showToast(`Nmap ${cmdType.replace('_', ' ')} completed!`, "success");
+            loadOverviewData();
+            loadPhase4Data();
+        })
+        .catch(e => {
+            updateProgressBar(0, "Scan Failed");
+            showToast("Command execution failed.", "error");
+        });
+    };
+}
+
+function triggerNmapScan() {
+    executeNmapCmd('service_scan');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

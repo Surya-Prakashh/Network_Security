@@ -1,62 +1,27 @@
 {
-    "timestamp": "2026-08-10T12:10:18.969153",
-    "target": "127.0.0.1",
-    "command_executed": "nmap -sV -O -F --open 127.0.0.1",
-    "scan_mode": "Live Real Nmap (FAST)",
+    "timestamp": "2026-08-10T15:15:40.059711",
+    "target": "10.20.167.0/24",
+    "command_executed": "nmap -sn --stats-every 1s --min-rate 300 10.20.167.0/24",
+    "cmd_type": "ping_sweep",
+    "scan_mode": "Live Nmap CLI (Ping Sweep)",
+    "network_interfaces": {
+        "local_ip": "10.20.167.60",
+        "default_gateway": "10.20.167.107",
+        "subnet_mask": "255.255.255.0",
+        "subnet_cidr": "10.20.167.0/24",
+        "raw_ipconfig": "\nWindows IP Configuration\n\n\nUnknown adapter Local Area Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 3:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 4:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Wi-Fi:\n\n   Connection-specific DNS Suffix  . : \n   IPv4 Address. . . . . . . . . . . : 10.20.167.60\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n   Default Gateway . . . . . . . . . : 10.20.167.107\n\nEthernet adapter Bluetooth Network Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nEthernet adapter Ethernet:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n"
+    },
     "total_hosts_found": 1,
     "hosts": [
         {
-            "ip": "127.0.0.1",
+            "ip": "10.20.167.60",
             "status": "up",
-            "hostname": "localhost",
+            "hostname": "10.20.167.60",
             "mac_address": "N/A",
             "vendor": "Unknown",
-            "os_details": "Microsoft Windows 11 24H2 - 25H2 (100% accuracy)",
-            "ports": [
-                {
-                    "port": 21,
-                    "protocol": "tcp",
-                    "service": "ftp",
-                    "version": "Microsoft ftpd",
-                    "state": "open"
-                },
-                {
-                    "port": 135,
-                    "protocol": "tcp",
-                    "service": "msrpc",
-                    "version": "Microsoft Windows RPC",
-                    "state": "open"
-                },
-                {
-                    "port": 445,
-                    "protocol": "tcp",
-                    "service": "microsoft-ds",
-                    "version": "Unknown Version",
-                    "state": "open"
-                },
-                {
-                    "port": 3306,
-                    "protocol": "tcp",
-                    "service": "mysql",
-                    "version": "Unknown Version",
-                    "state": "open"
-                },
-                {
-                    "port": 5000,
-                    "protocol": "tcp",
-                    "service": "http",
-                    "version": "Werkzeug httpd 3.1.4 Python 3.12.6",
-                    "state": "open"
-                },
-                {
-                    "port": 5432,
-                    "protocol": "tcp",
-                    "service": "postgresql",
-                    "version": "PostgreSQL DB",
-                    "state": "open"
-                }
-            ]
+            "os_details": "OS detection not available / restricted",
+            "ports": []
         }
     ],
-    "terminal_output": "$ nmap -sV -O -F --open 127.0.0.1\n\nStarting Nmap 7.99 ( https://nmap.org ) at 2026-08-10 12:09 +0530\nNmap scan report for localhost (127.0.0.1)\nHost is up (0.056s latency).\nNot shown: 94 closed tcp ports (reset)\nPORT     STATE SERVICE       VERSION\n21/tcp   open  ftp           Microsoft ftpd\n135/tcp  open  msrpc         Microsoft Windows RPC\n445/tcp  open  microsoft-ds?\n3306/tcp open  mysql?\n5000/tcp open  http          Werkzeug httpd 3.1.4 (Python 3.12.6)\n5432/tcp open  postgresql    PostgreSQL DB\n1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :\nSF-Port3306-TCP:V=7.99%I=7%D=8/10%Time=6A797246%P=i686-pc-windows-windows%\nSF:r(NULL,4D,\"I\\0\\0\\0\\n9\\.0\\.1\\0F\\0\\0\\0}_3\\\\\\)!Mg\\0\\xff\\xff\\xff\\x02\\0\\xff\\\nSF:xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\x0f&V&\\x1eG\\x0ch8tmx\\0caching_sha2_password\nSF:\\0\")%r(GenericLines,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0F\\0\\0\\0}_3\\\\\\)!Mg\\0\\xff\\xff\\x\nSF:ff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\x0f&V&\\x1eG\\x0ch8tmx\\0caching_\nSF:sha2_password\\0!\\0\\0\\x01\\xff\\x84\\x04#08S01Got\\x20packets\\x20out\\x20of\\x\nSF:20order\")%r(GetRequest,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0G\\0\\0\\0N\\x1e\\x04\\?U\\(\\x10\\\nSF:x08\\0\\xff\\xff\\xff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0D{\\)\\\\p\\x1cJt\\x1\nSF:fwa@\\0caching_sha2_password\\0!\\0\\0\\x01\\xff\\x84\\x04#08S01Got\\x20packets\\\nSF:x20out\\x20of\\x20order\")%r(HTTPOptions,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0H\\0\\0\\0\\\"}T\nSF:\\)\\x15n\\x1c\\+\\0\\xff\\xff\\xff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0s0g-\\^\nSF:VW>8hc'\\0caching_sha2_password\\0!\\0\\0\\x01\\xff\\x84\\x04#08S01Got\\x20packe\nSF:ts\\x20out\\x20of\\x20order\")%r(RTSPRequest,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0I\\0\\0\\0}\nSF:\\^\\x13\\\"I'<N\\0\\xff\\xff\\xff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0K\\x0c\\[\nSF:X\\x1dP_\\x15\\x07}kK\\0caching_sha2_password\\0!\\0\\0\\x01\\xff\\x84\\x04#08S01G\nSF:ot\\x20packets\\x20out\\x20of\\x20order\")%r(RPCCheck,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0\nSF:J\\0\\0\\0\\x0b\\x15~_\\x01\\n'\\x0e\\0\\xff\\xff\\xff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\\nSF:0\\0\\0\\0\\0\\x1d%R\\x11&dTK\\x01{W&\\0caching_sha2_password\\0!\\0\\0\\x01\\xff\\x8\nSF:4\\x04#08S01Got\\x20packets\\x20out\\x20of\\x20order\")%r(DNSVersionBindReqTC\nSF:P,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0K\\0\\0\\0\\x0eexxG\\)\\x01R\\0\\xff\\xff\\xff\\x02\\0\\xff\\\nSF:xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0P\\x1b\\x1f\\\"6giy;#M\\x13\\0caching_sha2_passwor\nSF:d\\0!\\0\\0\\x01\\xff\\x84\\x04#08S01Got\\x20packets\\x20out\\x20of\\x20order\")%r(\nSF:DNSStatusRequestTCP,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0L\\0\\0\\x00806n4l\\x0f\\x19\\0\\xff\nSF:\\xff\\xff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0&<\\x1dB\\x15\\x1cR\\x04Y\\x1e\nSF:p9\\0caching_sha2_password\\0!\\0\\0\\x01\\xff\\x84\\x04#08S01Got\\x20packets\\x2\nSF:0out\\x20of\\x20order\")%r(Help,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0M\\0\\0\\0\\*#;xqw,\\x1c\\\nSF:0\\xff\\xff\\xff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\x000\\x19i\\?\\x13C\\\"\\x1\nSF:a\\x19\\*\\x12\\n\\0caching_sha2_password\\0!\\0\\0\\x01\\xff\\x84\\x04#08S01Got\\x2\nSF:0packets\\x20out\\x20of\\x20order\")%r(SSLSessionReq,72,\"I\\0\\0\\0\\n9\\.0\\.1\\0\nSF:N\\0\\0\\0u\\ncl\\*d\\\\#\\0\\xff\\xff\\xff\\x02\\0\\xff\\xdf\\x15\\0\\0\\0\\0\\0\\0\\0\\0\\0\\x0\nSF:08\\r\\x1d~\\t\\x0ff\\x13\\x1fc>\\.\\0caching_sha2_password\\0!\\0\\0\\x01\\xff\\x84\\\nSF:x04#08S01Got\\x20packets\\x20out\\x20of\\x20order\");\nDevice type: general purpose\nRunning: Microsoft Windows 11\nOS CPE: cpe:/o:microsoft:windows_11\nOS details: Microsoft Windows 11 24H2 - 25H2\nNetwork Distance: 0 hops\nService Info: OS: Windows; CPE: cpe:/o:microsoft:windows\n\nOS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .\nNmap done: 1 IP address (1 host up) scanned in 19.09 seconds\n"
+    "terminal_output": "$ nmap -sn --stats-every 1s --min-rate 300 10.20.167.0/24\n\nStarting Nmap 7.99 ( https://nmap.org ) at 2026-08-10 15:15 +0530\nStats: 0:00:01 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan\nARP Ping Scan Timing: About 27.84% done; ETC: 15:15 (0:00:03 remaining)\nStats: 0:00:02 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan\nARP Ping Scan Timing: About 73.73% done; ETC: 15:15 (0:00:01 remaining)\nNmap scan report for 10.20.167.60\nHost is up.\nNmap done: 256 IP addresses (1 host up) scanned in 3.33 seconds\n"
 }
