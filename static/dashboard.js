@@ -157,7 +157,14 @@ function loadModule1Data() {
         .then(res => res.json())
         .then(data => {
             document.getElementById("m1-scan-time").textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "N/A";
-            document.getElementById("m1-scan-mode").textContent = data.scan_mode || "Nmap PortScanner";
+            document.getElementById("m1-cmd-executed").textContent = data.command_executed || "nmap -sV -O -F 127.0.0.1";
+            document.getElementById("m1-engine-badge").textContent = data.scan_mode || "Live Real Nmap";
+
+            if (data.terminal_output) {
+                document.getElementById("nmapTerminalConsole").textContent = data.terminal_output;
+            } else {
+                fetchTerminalLog();
+            }
 
             const hostsGrid = document.getElementById("hostsGrid");
             hostsGrid.innerHTML = "";
@@ -199,18 +206,31 @@ function loadModule1Data() {
         .catch(err => console.error("Error loading Module 1:", err));
 }
 
+function fetchTerminalLog() {
+    fetch("/api/module1/terminal")
+        .then(res => res.json())
+        .then(data => {
+            if (data.terminal_output) {
+                document.getElementById("nmapTerminalConsole").textContent = data.terminal_output;
+            }
+        });
+}
+
 function triggerNmapScan() {
-    const subnet = document.getElementById("targetSubnet").value || "192.168.1.0/24";
-    showToast(`Scanning Network Range: ${subnet}...`);
+    const target = document.getElementById("targetSubnet").value || "127.0.0.1";
+    const scanType = document.getElementById("scanTypeSelect").value || "fast";
+    
+    showToast(`Executing Live Nmap Scan on: ${target}...`);
+    document.getElementById("nmapTerminalConsole").textContent = `$ nmap -sV -O ${scanType === 'full' ? '-p-' : '-F'} ${target}\n\n[Running live Nmap process on host... Please wait]`;
 
     fetch("/api/module1/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_subnet: subnet })
+        body: JSON.stringify({ target: target, scan_type: scanType })
     })
     .then(res => res.json())
     .then(data => {
-        showToast("Nmap Network Scan Complete!", "success");
+        showToast("Nmap Network Discovery Finished!", "success");
         loadModule1Data();
         loadOverviewData();
         loadPhase4Data();

@@ -1,17 +1,52 @@
 {
-    "generated_at": "2026-08-10T11:51:06.820333",
+    "generated_at": "2026-08-10T12:14:07.259530",
     "summary": {
-        "total_hosts_evaluated": 101,
-        "unnecessary_open_ports_count": 0,
+        "total_hosts_evaluated": 1,
+        "unnecessary_open_ports_count": 3,
         "insecure_protocols_found": [
+            "FTP",
             "HTTP",
-            "DNS"
+            "DNS",
+            "SMB",
+            "MSRPC"
         ],
-        "recommended_firewall_rules_count": 0,
-        "security_score": 80
+        "recommended_firewall_rules_count": 3,
+        "security_score": 10
     },
-    "unnecessary_ports": [],
+    "unnecessary_ports": [
+        {
+            "ip": "127.0.0.1",
+            "port": 21,
+            "service": "ftp",
+            "version": "Microsoft ftpd",
+            "risk_level": "High",
+            "reason": "Transmits credentials and files in unencrypted cleartext."
+        },
+        {
+            "ip": "127.0.0.1",
+            "port": 135,
+            "service": "msrpc",
+            "version": "Microsoft Windows RPC",
+            "risk_level": "Medium",
+            "reason": "Windows RPC endpoint mapper often targeted for reconnaissance."
+        },
+        {
+            "ip": "127.0.0.1",
+            "port": 445,
+            "service": "microsoft-ds",
+            "version": "Unknown Version",
+            "risk_level": "Critical",
+            "reason": "Direct SMB port frequently targeted by WannaCry/EternalBlue exploits."
+        }
+    ],
     "insecure_protocols": [
+        {
+            "protocol": "FTP",
+            "details": {
+                "severity": "High",
+                "mitigation": "Replace FTP with SFTP (SSH File Transfer Protocol) or FTPS."
+            }
+        },
         {
             "protocol": "HTTP",
             "details": {
@@ -25,10 +60,55 @@
                 "severity": "Low",
                 "mitigation": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."
             }
+        },
+        {
+            "protocol": "SMB",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Enforce encryption."
+            }
+        },
+        {
+            "protocol": "MSRPC",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Enforce encryption."
+            }
         }
     ],
-    "recommended_firewall_rules": [],
+    "recommended_firewall_rules": [
+        {
+            "target_ip": "127.0.0.1",
+            "port": 21,
+            "service": "FTP",
+            "windows_firewall_cmd": "netsh advfirewall firewall add rule name=\"Block Insecure Port 21 (FTP)\" dir=in action=block protocol=TCP localport=21",
+            "linux_ufw_cmd": "sudo ufw deny in proto tcp to any port 21 comment \"Block FTP\"",
+            "rationale": "Block unnecessary port 21 (FTP) on 127.0.0.1 to prevent unauthorized exploitation."
+        },
+        {
+            "target_ip": "127.0.0.1",
+            "port": 135,
+            "service": "MSRPC",
+            "windows_firewall_cmd": "netsh advfirewall firewall add rule name=\"Block Insecure Port 135 (MSRPC)\" dir=in action=block protocol=TCP localport=135",
+            "linux_ufw_cmd": "sudo ufw deny in proto tcp to any port 135 comment \"Block MSRPC\"",
+            "rationale": "Block unnecessary port 135 (MSRPC) on 127.0.0.1 to prevent unauthorized exploitation."
+        },
+        {
+            "target_ip": "127.0.0.1",
+            "port": 445,
+            "service": "SMB",
+            "windows_firewall_cmd": "netsh advfirewall firewall add rule name=\"Block Insecure Port 445 (SMB)\" dir=in action=block protocol=TCP localport=445",
+            "linux_ufw_cmd": "sudo ufw deny in proto tcp to any port 445 comment \"Block SMB\"",
+            "rationale": "Block unnecessary port 445 (SMB) on 127.0.0.1 to prevent unauthorized exploitation."
+        }
+    ],
     "security_improvements": [
+        {
+            "category": "Insecure Protocol: FTP",
+            "severity": "High",
+            "finding": "Detected plain-text FTP traffic across network.",
+            "action_item": "Replace FTP with SFTP (SSH File Transfer Protocol) or FTPS."
+        },
         {
             "category": "Insecure Protocol: HTTP",
             "severity": "Medium",
