@@ -1,55 +1,10 @@
-$ nmap -sV -O -F --open 127.0.0.1
+$ nmap -sn --stats-every 1s --min-rate 300 10.20.167.0/24
 
-Starting Nmap 7.99 ( https://nmap.org ) at 2026-08-10 12:09 +0530
-Nmap scan report for localhost (127.0.0.1)
-Host is up (0.056s latency).
-Not shown: 94 closed tcp ports (reset)
-PORT     STATE SERVICE       VERSION
-21/tcp   open  ftp           Microsoft ftpd
-135/tcp  open  msrpc         Microsoft Windows RPC
-445/tcp  open  microsoft-ds?
-3306/tcp open  mysql?
-5000/tcp open  http          Werkzeug httpd 3.1.4 (Python 3.12.6)
-5432/tcp open  postgresql    PostgreSQL DB
-1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
-SF-Port3306-TCP:V=7.99%I=7%D=8/10%Time=6A797246%P=i686-pc-windows-windows%
-SF:r(NULL,4D,"I\0\0\0\n9\.0\.1\0F\0\0\0}_3\\\)!Mg\0\xff\xff\xff\x02\0\xff\
-SF:xdf\x15\0\0\0\0\0\0\0\0\0\0\x0f&V&\x1eG\x0ch8tmx\0caching_sha2_password
-SF:\0")%r(GenericLines,72,"I\0\0\0\n9\.0\.1\0F\0\0\0}_3\\\)!Mg\0\xff\xff\x
-SF:ff\x02\0\xff\xdf\x15\0\0\0\0\0\0\0\0\0\0\x0f&V&\x1eG\x0ch8tmx\0caching_
-SF:sha2_password\0!\0\0\x01\xff\x84\x04#08S01Got\x20packets\x20out\x20of\x
-SF:20order")%r(GetRequest,72,"I\0\0\0\n9\.0\.1\0G\0\0\0N\x1e\x04\?U\(\x10\
-SF:x08\0\xff\xff\xff\x02\0\xff\xdf\x15\0\0\0\0\0\0\0\0\0\0D{\)\\p\x1cJt\x1
-SF:fwa@\0caching_sha2_password\0!\0\0\x01\xff\x84\x04#08S01Got\x20packets\
-SF:x20out\x20of\x20order")%r(HTTPOptions,72,"I\0\0\0\n9\.0\.1\0H\0\0\0\"}T
-SF:\)\x15n\x1c\+\0\xff\xff\xff\x02\0\xff\xdf\x15\0\0\0\0\0\0\0\0\0\0s0g-\^
-SF:VW>8hc'\0caching_sha2_password\0!\0\0\x01\xff\x84\x04#08S01Got\x20packe
-SF:ts\x20out\x20of\x20order")%r(RTSPRequest,72,"I\0\0\0\n9\.0\.1\0I\0\0\0}
-SF:\^\x13\"I'<N\0\xff\xff\xff\x02\0\xff\xdf\x15\0\0\0\0\0\0\0\0\0\0K\x0c\[
-SF:X\x1dP_\x15\x07}kK\0caching_sha2_password\0!\0\0\x01\xff\x84\x04#08S01G
-SF:ot\x20packets\x20out\x20of\x20order")%r(RPCCheck,72,"I\0\0\0\n9\.0\.1\0
-SF:J\0\0\0\x0b\x15~_\x01\n'\x0e\0\xff\xff\xff\x02\0\xff\xdf\x15\0\0\0\0\0\
-SF:0\0\0\0\0\x1d%R\x11&dTK\x01{W&\0caching_sha2_password\0!\0\0\x01\xff\x8
-SF:4\x04#08S01Got\x20packets\x20out\x20of\x20order")%r(DNSVersionBindReqTC
-SF:P,72,"I\0\0\0\n9\.0\.1\0K\0\0\0\x0eexxG\)\x01R\0\xff\xff\xff\x02\0\xff\
-SF:xdf\x15\0\0\0\0\0\0\0\0\0\0P\x1b\x1f\"6giy;#M\x13\0caching_sha2_passwor
-SF:d\0!\0\0\x01\xff\x84\x04#08S01Got\x20packets\x20out\x20of\x20order")%r(
-SF:DNSStatusRequestTCP,72,"I\0\0\0\n9\.0\.1\0L\0\0\x00806n4l\x0f\x19\0\xff
-SF:\xff\xff\x02\0\xff\xdf\x15\0\0\0\0\0\0\0\0\0\0&<\x1dB\x15\x1cR\x04Y\x1e
-SF:p9\0caching_sha2_password\0!\0\0\x01\xff\x84\x04#08S01Got\x20packets\x2
-SF:0out\x20of\x20order")%r(Help,72,"I\0\0\0\n9\.0\.1\0M\0\0\0\*#;xqw,\x1c\
-SF:0\xff\xff\xff\x02\0\xff\xdf\x15\0\0\0\0\0\0\0\0\0\x000\x19i\?\x13C\"\x1
-SF:a\x19\*\x12\n\0caching_sha2_password\0!\0\0\x01\xff\x84\x04#08S01Got\x2
-SF:0packets\x20out\x20of\x20order")%r(SSLSessionReq,72,"I\0\0\0\n9\.0\.1\0
-SF:N\0\0\0u\ncl\*d\\#\0\xff\xff\xff\x02\0\xff\xdf\x15\0\0\0\0\0\0\0\0\0\x0
-SF:08\r\x1d~\t\x0ff\x13\x1fc>\.\0caching_sha2_password\0!\0\0\x01\xff\x84\
-SF:x04#08S01Got\x20packets\x20out\x20of\x20order");
-Device type: general purpose
-Running: Microsoft Windows 11
-OS CPE: cpe:/o:microsoft:windows_11
-OS details: Microsoft Windows 11 24H2 - 25H2
-Network Distance: 0 hops
-Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
-
-OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
-Nmap done: 1 IP address (1 host up) scanned in 19.09 seconds
+Starting Nmap 7.99 ( https://nmap.org ) at 2026-08-10 15:15 +0530
+Stats: 0:00:01 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan
+ARP Ping Scan Timing: About 27.84% done; ETC: 15:15 (0:00:03 remaining)
+Stats: 0:00:02 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan
+ARP Ping Scan Timing: About 73.73% done; ETC: 15:15 (0:00:01 remaining)
+Nmap scan report for 10.20.167.60
+Host is up.
+Nmap done: 256 IP addresses (1 host up) scanned in 3.33 seconds

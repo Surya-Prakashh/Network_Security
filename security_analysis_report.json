@@ -1,8 +1,8 @@
 {
     "generated_at": "2026-08-10T15:50:03.094251",
     "summary": {
-        "total_hosts_evaluated": 1,
-        "unnecessary_open_ports_count": 3,
+        "total_hosts_evaluated": 0,
+        "unnecessary_open_ports_count": 0,
         "insecure_protocols_found": [
             "FTP",
             "DNS",
@@ -11,24 +11,16 @@
             "SMB"
         ],
         "recommended_firewall_rules_count": 3,
-        "security_score": 10
+        "security_score": 15
     },
-    "unnecessary_ports": [
+    "unnecessary_ports": [],
+    "insecure_protocols": [
         {
-            "ip": "127.0.0.1",
-            "port": 21,
-            "service": "ftp",
-            "version": "Microsoft ftpd",
-            "risk_level": "High",
-            "reason": "Transmits credentials and files in unencrypted cleartext."
-        },
-        {
-            "ip": "127.0.0.1",
-            "port": 135,
-            "service": "msrpc",
-            "version": "Microsoft Windows RPC",
-            "risk_level": "Medium",
-            "reason": "Windows RPC endpoint mapper often targeted for reconnaissance."
+            "protocol": "MSRPC",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Enforce encryption."
+            }
         },
         {
             "ip": "127.0.0.1",
@@ -102,6 +94,7 @@
             "rationale": "Block unnecessary port 445 (SMB) on 127.0.0.1 to prevent unauthorized exploitation."
         }
     ],
+    "recommended_firewall_rules": [],
     "security_improvements": [
         {
             "category": "Insecure Protocol: FTP",

@@ -1,7 +1,7 @@
 """
 Module 1: Real Network Discovery & Sequential Nmap Scanner (Phase 1)
 ---------------------------------------------------------------------
-Executes dynamic native Nmap CLI commands in sequence:
+Executes dynamic native Nmap CLI commands in sequence with live progress streaming:
 1. Detect Default Gateway & Local IP (ipconfig logic)
 2. Network Host Discovery Ping Sweep (-sn)
 3. Basic TCP Port Scan (top ports / default ports)
@@ -9,7 +9,7 @@ Executes dynamic native Nmap CLI commands in sequence:
 5. Operating System Fingerprinting (-O)
 6. Aggressive Security Scan (-A)
 
-Captures live stdout into nmap_terminal_output.txt and updates scan_results.json & scan_results.csv dynamically.
+Outputs real Nmap terminal logs, live progress percentage, scan_results.json, and scan_results.csv.
 NO mock/synthetic data.
 """
 
@@ -33,6 +33,7 @@ def get_network_interfaces_info():
     gateway = None
     subnet_mask = "255.255.255.0"
     subnet_cidr = "192.168.1.0/24"
+    cmd_out = ""
 
     try:
         cmd_out = subprocess.check_output("ipconfig", shell=True, text=True, errors="ignore")
@@ -43,7 +44,6 @@ def get_network_interfaces_info():
         gw_matches = re.findall(r"Default Gateway[.\s]+:\s+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)", cmd_out)
 
         if ipv4_matches:
-            # Pick first non-loopback IP
             for ip in ipv4_matches:
                 if not ip.startswith("127."):
                     local_ip = ip
@@ -55,15 +55,10 @@ def get_network_interfaces_info():
         if gw_matches:
             gateway = gw_matches[0]
 
-        # Calculate CIDR subnet from IP and Subnet Mask
         if local_ip != "127.0.0.1":
             ip_parts = [int(p) for p in local_ip.split(".")]
             mask_parts = [int(p) for p in subnet_mask.split(".")]
-            
-            # Netmask bits to CIDR prefix
             cidr_bits = sum(bin(m).count('1') for m in mask_parts)
-            
-            # Calculate network base address
             net_parts = [ip_parts[i] & mask_parts[i] for i in range(4)]
             base_net = ".".join(str(p) for p in net_parts)
             subnet_cidr = f"{base_net}/{cidr_bits}"
@@ -75,7 +70,8 @@ def get_network_interfaces_info():
         "local_ip": local_ip,
         "default_gateway": gateway,
         "subnet_mask": subnet_mask,
-        "subnet_cidr": subnet_cidr
+        "subnet_cidr": subnet_cidr,
+        "raw_ipconfig": cmd_out if cmd_out else "ipconfig command output unavailable."
     }
 
 
@@ -165,73 +161,135 @@ def parse_nmap_xml(xml_content):
     return hosts_data
 
 
+def parse_nmap_text_output(text):
+    """Parses raw text stdout from Nmap CLI into hosts list."""
+    hosts = []
+    current_host = None
+
+    for line in text.splitlines():
+        line = line.strip()
+        report_match = re.search(r"Nmap scan report for (?:([^\s()]+)\s+\()?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\)?", line)
+        if report_match:
+            if current_host:
+                hosts.append(current_host)
+            hostname = report_match.group(1) or report_match.group(2)
+            ip = report_match.group(2)
+            current_host = {
+                "ip": ip,
+                "status": "up",
+                "hostname": hostname,
+                "mac_address": "N/A",
+                "vendor": "Unknown",
+                "os_details": "N/A",
+                "ports": []
+            }
+            continue
+
+        mac_match = re.search(r"MAC Address:\s+([0-9A-Fa-f:]+)\s*(?:\((.*?)\))?", line)
+        if mac_match and current_host:
+            current_host["mac_address"] = mac_match.group(1)
+            current_host["vendor"] = mac_match.group(2) or "Unknown"
+
+    if current_host:
+        hosts.append(current_host)
+
+    return hosts
+
+
+def extract_progress_percentage(line, current_percent=0.0):
+    """Extracts completion percentage from Nmap status line."""
+    match = re.search(r"About\s+([0-9]+(?:\.[0-9]+)?)\%\s+done", line, re.IGNORECASE)
+    if match:
+        return float(match.group(1))
+    
+    # Stage heuristics fallback
+    if "Initiating ARP Ping Scan" in line or "Initiating Ping Scan" in line:
+        return max(current_percent, 5.0)
+    elif "Initiating Parallel DNS resolution" in line:
+        return max(current_percent, 15.0)
+    elif "Initiating SYN Stealth Scan" in line or "Initiating Connect Scan" in line:
+        return max(current_percent, 30.0)
+    elif "Initiating Service scan" in line:
+        return max(current_percent, 55.0)
+    elif "Initiating OS detection" in line:
+        return max(current_percent, 80.0)
+    elif "Initiating NSE" in line:
+        return max(current_percent, 90.0)
+    elif "Nmap done:" in line:
+        return 100.0
+    return current_percent
+
+
 def run_single_nmap_command(cmd_type, target):
     """
     Executes a specific Nmap command mode:
-    - 'ping_sweep': nmap -sn <target>
-    - 'basic_scan': nmap <target>
-    - 'service_scan': nmap -sV <target>
-    - 'os_scan': nmap -O <target>
-    - 'aggressive_scan': nmap -A <target>
+    - 'ping_sweep': nmap -sn --stats-every 1s --min-rate 300 <target>
+    - 'basic_scan': nmap --stats-every 1s <target>
+    - 'service_scan': nmap -sV --stats-every 1s <target>
+    - 'os_scan': nmap -O --stats-every 1s <target>
+    - 'aggressive_scan': nmap -A --stats-every 1s <target>
     """
     net_info = get_network_interfaces_info()
     if not target:
         target = net_info["subnet_cidr"] if cmd_type == "ping_sweep" else (net_info["default_gateway"] or net_info["local_ip"])
 
-    # Build Nmap command array
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    temp_xml_path = os.path.join(script_dir, "temp_scan.xml")
+
+    # Build Nmap command array with --stats-every 1s
     if cmd_type == "ping_sweep":
-        base_cmd = ["nmap", "-sn", target]
-        display_cmd = f"nmap -sn {target}"
+        base_cmd = ["nmap", "-sn", "--stats-every", "1s", "--min-rate", "300", target]
+        display_cmd = f"nmap -sn --stats-every 1s --min-rate 300 {target}"
     elif cmd_type == "basic_scan":
-        base_cmd = ["nmap", target]
-        display_cmd = f"nmap {target}"
+        base_cmd = ["nmap", "--stats-every", "1s", target]
+        display_cmd = f"nmap --stats-every 1s {target}"
     elif cmd_type == "service_scan":
-        base_cmd = ["nmap", "-sV", target]
-        display_cmd = f"nmap -sV {target}"
+        base_cmd = ["nmap", "-sV", "--stats-every", "1s", target]
+        display_cmd = f"nmap -sV --stats-every 1s {target}"
     elif cmd_type == "os_scan":
-        base_cmd = ["nmap", "-O", target]
-        display_cmd = f"nmap -O {target}"
+        base_cmd = ["nmap", "-O", "--stats-every", "1s", target]
+        display_cmd = f"nmap -O --stats-every 1s {target}"
     elif cmd_type == "aggressive_scan":
-        base_cmd = ["nmap", "-A", target]
-        display_cmd = f"nmap -A {target}"
+        base_cmd = ["nmap", "-A", "--stats-every", "1s", target]
+        display_cmd = f"nmap -A --stats-every 1s {target}"
     else:
-        base_cmd = ["nmap", "-sV", "-O", "-F", "--open", target]
-        display_cmd = f"nmap -sV -O -F --open {target}"
+        base_cmd = ["nmap", "-sV", "-O", "-F", "--open", "--stats-every", "1s", target]
+        display_cmd = f"nmap -sV -O -F --open --stats-every 1s {target}"
 
     print(f"[*] Executing Nmap Command: {display_cmd}")
 
-    # Run for terminal output
+    terminal_out = ""
+    xml_out = ""
+    
     try:
-        term_proc = subprocess.run(
-            base_cmd,
+        full_cmd = base_cmd + ["-oX", temp_xml_path]
+        proc = subprocess.run(
+            full_cmd,
             capture_output=True,
             text=True,
-            timeout=180
+            timeout=300
         )
-        terminal_out = f"$ {display_cmd}\n\n" + (term_proc.stdout or "")
-        if term_proc.stderr:
-            terminal_out += f"\n[Stderr Output]\n{term_proc.stderr}"
+        terminal_out = f"$ {display_cmd}\n\n" + (proc.stdout or "")
+        if proc.stderr:
+            terminal_out += f"\n[Stderr Output]\n{proc.stderr}"
+
+        if os.path.exists(temp_xml_path):
+            with open(temp_xml_path, "r", encoding="utf-8", errors="ignore") as f:
+                xml_out = f.read()
+            try:
+                os.remove(temp_xml_path)
+            except Exception:
+                pass
+    except subprocess.TimeoutExpired as te:
+        stdout_part = te.stdout or ""
+        terminal_out = f"$ {display_cmd}\n\n[Timeout Warning: Scan exceeded 300 seconds]\n{stdout_part}"
     except Exception as e:
         terminal_out = f"$ {display_cmd}\n\nError executing Nmap: {str(e)}"
 
-    # Run with XML flag for structured JSON extraction
-    xml_out = ""
-    try:
-        xml_cmd = base_cmd + ["-oX", "-"]
-        xml_proc = subprocess.run(
-            xml_cmd,
-            capture_output=True,
-            text=True,
-            timeout=180
-        )
-        xml_out = xml_proc.stdout
-    except Exception as e:
-        print(f"[!] XML execution warning: {e}")
-
     hosts_data = parse_nmap_xml(xml_out)
+    if not hosts_data:
+        hosts_data = parse_nmap_text_output(terminal_out)
 
-    # Save to terminal log
-    script_dir = os.path.dirname(os.path.abspath(__file__))
     terminal_log_path = os.path.join(script_dir, "nmap_terminal_output.txt")
     json_path = os.path.join(script_dir, "scan_results.json")
     csv_path = os.path.join(script_dir, "scan_results.csv")
@@ -268,6 +326,121 @@ def run_single_nmap_command(cmd_type, target):
                     ])
 
     return scan_result
+
+
+def stream_nmap_command_events(cmd_type, target):
+    """
+    Generator streaming live lines & progress percentage via Server-Sent Events (SSE).
+    """
+    net_info = get_network_interfaces_info()
+    if not target:
+        target = net_info["subnet_cidr"] if cmd_type == "ping_sweep" else (net_info["default_gateway"] or net_info["local_ip"])
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    temp_xml_path = os.path.join(script_dir, "temp_stream_scan.xml")
+
+    if cmd_type == "ping_sweep":
+        base_cmd = ["nmap", "-sn", "--stats-every", "1s", "--min-rate", "300", target]
+        display_cmd = f"nmap -sn --stats-every 1s --min-rate 300 {target}"
+    elif cmd_type == "basic_scan":
+        base_cmd = ["nmap", "--stats-every", "1s", target]
+        display_cmd = f"nmap {target}"
+    elif cmd_type == "service_scan":
+        base_cmd = ["nmap", "-sV", "--stats-every", "1s", target]
+        display_cmd = f"nmap -sV {target}"
+    elif cmd_type == "os_scan":
+        base_cmd = ["nmap", "-O", "--stats-every", "1s", target]
+        display_cmd = f"nmap -O {target}"
+    elif cmd_type == "aggressive_scan":
+        base_cmd = ["nmap", "-A", "--stats-every", "1s", target]
+        display_cmd = f"nmap -A {target}"
+    else:
+        base_cmd = ["nmap", "-sV", "-O", "-F", "--open", "--stats-every", "1s", target]
+        display_cmd = f"nmap -sV -O -F --open {target}"
+
+    full_cmd = base_cmd + ["-oX", temp_xml_path]
+    
+    yield f"data: {json.dumps({'type': 'start', 'cmd': display_cmd, 'percent': 0.0})}\n\n"
+
+    collected_log = f"$ {display_cmd}\n\n"
+    current_pct = 0.0
+
+    try:
+        proc = subprocess.Popen(
+            full_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+
+        for line in iter(proc.stdout.readline, ''):
+            collected_log += line
+            current_pct = extract_progress_percentage(line, current_pct)
+            event_data = {
+                "type": "log",
+                "line": line,
+                "percent": round(current_pct, 1),
+                "full_log": collected_log
+            }
+            yield f"data: {json.dumps(event_data)}\n\n"
+
+        proc.wait()
+
+    except Exception as e:
+        err_msg = f"\nExecution error: {str(e)}\n"
+        collected_log += err_msg
+        yield f"data: {json.dumps({'type': 'log', 'line': err_msg, 'percent': current_pct, 'full_log': collected_log})}\n\n"
+
+    xml_out = ""
+    if os.path.exists(temp_xml_path):
+        try:
+            with open(temp_xml_path, "r", encoding="utf-8", errors="ignore") as f:
+                xml_out = f.read()
+            os.remove(temp_xml_path)
+        except Exception:
+            pass
+
+    hosts_data = parse_nmap_xml(xml_out)
+    if not hosts_data:
+        hosts_data = parse_nmap_text_output(collected_log)
+
+    terminal_log_path = os.path.join(script_dir, "nmap_terminal_output.txt")
+    json_path = os.path.join(script_dir, "scan_results.json")
+    csv_path = os.path.join(script_dir, "scan_results.csv")
+
+    with open(terminal_log_path, "w", encoding="utf-8") as f:
+        f.write(collected_log)
+
+    scan_result = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "target": target,
+        "command_executed": display_cmd,
+        "cmd_type": cmd_type,
+        "scan_mode": f"Live Nmap CLI ({cmd_type.replace('_', ' ').title()})",
+        "network_interfaces": net_info,
+        "total_hosts_found": len(hosts_data),
+        "hosts": hosts_data,
+        "terminal_output": collected_log
+    }
+
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(scan_result, f, indent=4)
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["IP Address", "Hostname", "Status", "MAC Address", "OS Details", "Port", "Protocol", "Service", "Version"])
+        for host in hosts_data:
+            if not host["ports"]:
+                writer.writerow([host["ip"], host["hostname"], host["status"], host["mac_address"], host["os_details"], "None", "None", "None", "None"])
+            else:
+                for p in host["ports"]:
+                    writer.writerow([
+                        host["ip"], host["hostname"], host["status"], host["mac_address"], host["os_details"],
+                        p["port"], p["protocol"], p["service"], p["version"]
+                    ])
+
+    yield f"data: {json.dumps({'type': 'complete', 'percent': 100.0, 'result': scan_result})}\n\n"
 
 
 if __name__ == "__main__":

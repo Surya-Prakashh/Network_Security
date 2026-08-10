@@ -14,6 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css">
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
     <!-- Top Navigation Header -->
@@ -153,55 +155,97 @@
                 </div>
 
                 <!-- Network Interface Info (ipconfig) Card -->
-                <div class="control-card" style="flex-direction: column; align-items: flex-start; gap: 0.75rem;">
+                <div class="control-card" style="flex-direction: column; align-items: flex-start; gap: 0.85rem; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 242, 254, 0.2);">
                     <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                        <h3 style="font-size: 1rem; color: var(--accent-cyan);"><i class="fa-solid fa-network-wired"></i> Local Network Subnet (ipconfig)</h3>
-                        <button class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;" onclick="loadNetworkInfo()">
-                            <i class="fa-solid fa-rotate"></i> Detect Subnet
-                        </button>
+                        <h3 style="font-size: 1.05rem; color: var(--accent-cyan); font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fa-solid fa-network-wired"></i> Step 1: Network Subnet Auto-Captured (ipconfig)
+                        </h3>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" style="padding: 0.35rem 0.8rem; font-size: 0.78rem;" onclick="viewRawIpconfig()">
+                                <i class="fa-solid fa-terminal"></i> Show Raw ipconfig Log
+                            </button>
+                            <button class="btn btn-outline" style="padding: 0.35rem 0.8rem; font-size: 0.78rem;" onclick="loadNetworkInfo()">
+                                <i class="fa-solid fa-rotate"></i> Re-Detect ipconfig
+                            </button>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 2rem; font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap;">
-                        <span>IPv4 Address: <strong id="net-ip" style="color:#fff;">Detecting...</strong></span>
+                    <div style="display: flex; gap: 1.8rem; font-size: 0.88rem; color: var(--text-muted); flex-wrap: wrap; background: rgba(0,0,0,0.25); padding: 0.75rem 1rem; border-radius: 8px; width: 100%;">
+                        <span>IPv4 Address: <strong id="net-ip" style="color:#00f2fe;">Detecting...</strong></span>
                         <span>Default Gateway: <strong id="net-gw" style="color:#fff;">Detecting...</strong></span>
                         <span>Subnet Mask: <strong id="net-mask" style="color:#fff;">Detecting...</strong></span>
-                        <span>Auto-Detected Subnet: <strong id="net-cidr" style="color:var(--accent-yellow);">Detecting...</strong></span>
+                        <span>Auto-Captured Target Subnet: <strong id="net-cidr" style="color:var(--accent-yellow); font-size: 0.95rem;">Detecting...</strong></span>
                     </div>
                 </div>
 
                 <!-- Dynamic Command Pipeline Bar -->
-                <div class="control-card">
-                    <div class="input-group" style="flex-wrap: wrap; gap: 0.5rem; width: 100%;">
-                        <label for="targetSubnet"><i class="fa-solid fa-crosshairs"></i> Target Host / Subnet:</label>
-                        <input type="text" id="targetSubnet" value="192.168.160.0/19" placeholder="e.g. 192.168.160.0/19 or 192.168.160.1" style="width: 240px;">
-                        
-                        <!-- Individual Nmap Command Buttons -->
-                        <div class="action-group" style="flex-wrap: wrap;">
-                            <button class="btn btn-secondary" onclick="executeNmapCmd('ping_sweep')">
-                                <i class="fa-solid fa-radar"></i> Ping Sweep (-sn)
+                <div class="control-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08);">
+                    <div style="display: flex; flex-direction: column; gap: 0.85rem; width: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                                <label for="targetSubnet"><strong style="color:#fff;">Target Host / Subnet:</strong></label>
+                                <input type="text" id="targetSubnet" value="" placeholder="Auto-captured from ipconfig..." style="width: 220px; font-weight: 600; color: #00f2fe; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,242,254,0.3);">
+                                
+                                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Quick Target:</span>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('cidr')">Subnet CIDR</button>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('gw')">Gateway IP</button>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="setTargetQuick('ip')">Local IP</button>
+                                </div>
+
+                                <label for="discoveredIpSelect" style="margin-left: 0.8rem;"><strong style="color:#fff;">Discovered Active Hosts:</strong></label>
+                                <select id="discoveredIpSelect" class="form-control" style="width: 240px; background: rgba(0,0,0,0.4); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onchange="document.getElementById('targetSubnet').value = this.value">
+                                    <option value="">(Run Ping Sweep to populate)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Command Sequence Step Buttons -->
+                        <div class="action-group" style="flex-wrap: wrap; gap: 0.6rem; margin-top: 0.4rem;">
+                            <button class="btn btn-primary" onclick="executeNmapCmd('ping_sweep')">
+                                <i class="fa-solid fa-radar"></i> Step 2: Ping Sweep (-sn)
                             </button>
                             <button class="btn btn-secondary" onclick="executeNmapCmd('basic_scan')">
-                                <i class="fa-solid fa-search"></i> Basic Scan
+                                <i class="fa-solid fa-search"></i> Step 3: Basic Scan (nmap IP)
                             </button>
                             <button class="btn btn-secondary" onclick="executeNmapCmd('service_scan')">
-                                <i class="fa-solid fa-gear"></i> Service Version (-sV)
+                                <i class="fa-solid fa-gear"></i> Step 4: Service Versions (-sV)
                             </button>
                             <button class="btn btn-secondary" onclick="executeNmapCmd('os_scan')">
-                                <i class="fa-solid fa-desktop"></i> OS Detection (-O)
+                                <i class="fa-solid fa-desktop"></i> Step 5: OS Detection (-O)
                             </button>
-                            <button class="btn btn-primary" onclick="executeNmapCmd('aggressive_scan')">
-                                <i class="fa-solid fa-bolt"></i> Aggressive Scan (-A)
+                            <button class="btn btn-warning" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); border: none; color: #fff; font-weight: 700;" onclick="executeNmapCmd('aggressive_scan')">
+                                <i class="fa-solid fa-bolt"></i> Step 6: Aggressive Audit (-A)
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Nmap Terminal Execution Output Console -->
-                <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem;">
-                    <div class="table-header">
-                        <h3><i class="fa-solid fa-terminal"></i> Live Nmap CLI Execution Output</h3>
-                        <span class="badge badge-info" id="m1-engine-badge">Live Real Nmap</span>
+                <!-- Live Scan Percentage Progress Bar -->
+                <div class="control-card" id="scanProgressCard" style="display: flex; flex-direction: column; gap: 0.6rem; background: rgba(10, 16, 30, 0.8); border: 1px solid rgba(0, 242, 254, 0.25);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span style="font-size: 0.88rem; font-weight: 600; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fa-solid fa-circle-notch fa-spin" id="scanSpinner" style="display:none; color:#00f2fe;"></i>
+                            <span id="scanStatusTitle">Scan Idle / Ready</span>
+                        </span>
+                        <span class="badge badge-info" id="scanPercentBadge" style="font-size: 0.82rem; font-weight: 700; background: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid rgba(0, 242, 254, 0.3);">0.0%</span>
                     </div>
-                    <pre id="nmapTerminalConsole" style="background: #000; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; overflow-x: auto; max-height: 320px; white-space: pre-wrap;">Loading Nmap terminal output...</pre>
+                    <div style="width: 100%; background: rgba(255,255,255,0.06); border-radius: 6px; height: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                        <div id="scanProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00f2fe 0%, #3b82f6 50%, #10b981 100%); transition: width 0.3s ease; box-shadow: 0 0 12px rgba(0, 242, 254, 0.6);"></div>
+                    </div>
+                </div>
+
+                <!-- Nmap Terminal Execution Output Console -->
+                <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 255, 102, 0.2);">
+                    <div class="table-header" style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+                        <h3 style="color:#00ff66;"><i class="fa-solid fa-terminal"></i> Live Terminal CLI Execution Stream</h3>
+                        <div>
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="navigator.clipboard.writeText(document.getElementById('nmapTerminalConsole').textContent); showToast('Terminal log copied!');">
+                                <i class="fa-regular fa-copy"></i> Copy Terminal Output
+                            </button>
+                            <span class="badge badge-info" id="m1-engine-badge" style="margin-left:0.5rem; background: rgba(0,255,102,0.15); color: #00ff66; border: 1px solid rgba(0,255,102,0.3);">Live Real CLI</span>
+                        </div>
+                    </div>
+                    <pre id="nmapTerminalConsole" style="background: #060911; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; overflow-x: auto; max-height: 380px; white-space: pre-wrap; border: 1px solid rgba(0,255,102,0.15); box-shadow: inset 0 0 15px rgba(0,0,0,0.8);">Loading CLI output...</pre>
                 </div>
 
                 <!-- Host Cards Grid -->
@@ -209,72 +253,222 @@
                     <!-- Host cards populated dynamically -->
                 </div>
             </section>
-
-            <!-- TAB 3: MODULE 2 PACKET CAPTURE -->
+            <!-- TAB 3: MODULE 2 REAL-TIME PACKET CAPTURE -->
             <section id="module2" class="tab-content">
                 <div class="section-header">
                     <div>
-                        <h2>Module 2: Packet Capture & Protocol Analysis (Wireshark/PyShark)</h2>
-                        <p class="section-desc">Folder: <code>module2_packet_capture/</code> • Captures TCP (3-way handshake), UDP, DNS, HTTP/HTTPS, and ICMP traffic.</p>
+                        <h2>Module 2: Real-Time Packet Capture &amp; Analysis</h2>
+                        <p class="section-desc">Folder: <code>module2_packet_capture/</code> &bull; Live capture via Scapy &bull; TCP 3-way handshake &bull; DNS &bull; HTTPS/TLS &bull; ICMP &bull; QUIC</p>
                     </div>
                     <div class="action-group">
-                        <a href="/download/module2_packet_capture/packet_analysis.csv" class="btn btn-outline">
-                            <i class="fa-solid fa-file-csv"></i> Download CSV
+                        <a id="m2-download-json" href="/download/module2_packet_capture/packet_analysis.json" class="btn btn-outline">
+                            <i class="fa-solid fa-file-code"></i> JSON
                         </a>
-                        <button class="btn btn-primary" onclick="triggerPacketCapture()">
-                            <i class="fa-solid fa-network-wired"></i> Capture & Dissect PCAP
+                        <a id="m2-download-csv" href="/download/module2_packet_capture/packet_analysis.csv" class="btn btn-outline">
+                            <i class="fa-solid fa-file-csv"></i> CSV
+                        </a>
+                        <button class="btn btn-primary" id="m2-export-btn" onclick="m2ExportCapture()">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Export
                         </button>
                     </div>
                 </div>
 
-                <!-- TCP Handshake Sequence Visualizer -->
-                <div class="handshake-card">
-                    <h3><i class="fa-solid fa-handshake"></i> TCP 3-Way Handshake Dissector</h3>
-                    <div class="handshake-steps">
-                        <div class="step-box">
-                            <span class="step-num">Step 1</span>
-                            <h4>SYN Sent</h4>
-                            <p>Client -> Server [SYN] Seq=0</p>
+                <!-- Capture Controls -->
+                <div class="control-card" style="margin-bottom:1.5rem;">
+                    <div class="input-group" style="flex-wrap:wrap; gap:0.75rem; align-items:center;">
+                        <label for="m2-iface-select" style="white-space:nowrap;"><i class="fa-solid fa-ethernet"></i> Interface:</label>
+                        <select id="m2-iface-select" class="form-control" style="min-width:180px; flex:1;">
+                            <option value="">Loading interfaces...</option>
+                        </select>
+                        <button class="btn btn-primary" id="m2-start-btn" onclick="m2StartCapture()">
+                            <i class="fa-solid fa-circle-play"></i> START CAPTURE
+                        </button>
+                        <button class="btn btn-warning" id="m2-stop-btn" onclick="m2StopCapture()" disabled>
+                            <i class="fa-solid fa-circle-stop"></i> STOP
+                        </button>
+                        <button class="btn btn-secondary" id="m2-clear-btn" onclick="m2ClearCapture()">
+                            <i class="fa-solid fa-trash"></i> CLEAR
+                        </button>
+                    </div>
+                    <div class="scan-meta" style="margin-top:0.75rem; display:flex; gap:2rem; align-items:center; flex-wrap:wrap;">
+                        <span>
+                            <span id="m2-status-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6b7280;margin-right:6px;"></span>
+                            <strong id="m2-status-text">Idle</strong>
+                        </span>
+                        <span><i class="fa-solid fa-clock"></i> Started: <strong id="m2-start-time">—</strong></span>
+                        <span id="m2-error-text" style="color:#ef4444; display:none;"><i class="fa-solid fa-triangle-exclamation"></i> <span id="m2-error-msg"></span></span>
+                    </div>
+                </div>
+
+                <!-- Live Statistics Bar -->
+                <div class="table-card" style="margin-bottom:1.5rem;">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-chart-bar"></i> Live Statistics</h3>
+                        <span class="badge badge-m2" id="m2-total-badge">0 Packets</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:1rem; padding:1rem 1.25rem;">
+                        <div class="m2-stat-tile" id="m2-stat-TCP">
+                            <span class="proto-tag proto-tcp">TCP</span>
+                            <div class="m2-stat-num" id="m2-cnt-TCP">0</div>
                         </div>
-                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                        <div class="step-box">
-                            <span class="step-num">Step 2</span>
-                            <h4>SYN-ACK Received</h4>
-                            <p>Server -> Client [SYN, ACK] Seq=0 Ack=1</p>
+                        <div class="m2-stat-tile" id="m2-stat-UDP">
+                            <span class="proto-tag proto-udp">UDP</span>
+                            <div class="m2-stat-num" id="m2-cnt-UDP">0</div>
                         </div>
-                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                        <div class="step-box">
-                            <span class="step-num">Step 3</span>
-                            <h4>ACK Sent</h4>
-                            <p>Client -> Server [ACK] Seq=1 Ack=1 (Established)</p>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag proto-dns">DNS</span>
+                            <div class="m2-stat-num" id="m2-cnt-DNS">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag" style="background:rgba(99,102,241,0.15);color:#818cf8;">TLS</span>
+                            <div class="m2-stat-num" id="m2-cnt-HTTPS/TLS">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag proto-icmp">ICMP</span>
+                            <div class="m2-stat-num" id="m2-cnt-ICMP">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag proto-http">HTTP</span>
+                            <div class="m2-stat-num" id="m2-cnt-HTTP">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag" style="background:rgba(16,185,129,0.15);color:#34d399;">QUIC</span>
+                            <div class="m2-stat-num" id="m2-cnt-QUIC">0</div>
+                        </div>
+                        <div class="m2-stat-tile">
+                            <span class="proto-tag" style="background:rgba(239,68,68,0.15);color:#f87171;">OTHER</span>
+                            <div class="m2-stat-num" id="m2-cnt-OTHER">0</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Packets Table -->
-                <div class="table-card">
+                <!-- Live Packets Table -->
+                <div class="table-card" style="margin-bottom:1.5rem;">
                     <div class="table-header">
-                        <h3>Captured Packets Stream</h3>
-                        <span class="badge badge-info" id="packet-count-badge">0 Packets</span>
+                        <h3><i class="fa-solid fa-wave-square"></i> Live Packets</h3>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <span class="badge badge-info" id="packet-count-badge">0 Packets</span>
+                            <span style="font-size:0.75rem;color:#6b7280;">(showing latest 500)</span>
+                        </div>
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-responsive" style="max-height:400px; overflow-y:auto;" id="m2-packets-scroll">
                         <table class="data-table">
-                            <thead>
+                            <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
                                 <tr>
                                     <th>#</th>
                                     <th>Time</th>
                                     <th>Source IP</th>
                                     <th>Destination IP</th>
                                     <th>Protocol</th>
-                                    <th>Length (B)</th>
-                                    <th>Details</th>
-                                    <th>TCP Handshake / DNS</th>
+                                    <th>Src Port</th>
+                                    <th>Dst Port</th>
+                                    <th>Length</th>
+                                    <th>Info</th>
                                 </tr>
                             </thead>
                             <tbody id="packetsTableBody">
-                                <!-- Packets dynamically loaded -->
+                                <tr id="m2-empty-row">
+                                    <td colspan="9" style="text-align:center;color:#6b7280;padding:2rem;">Start capture to see live packets</td>
+                                </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Bottom panels: TCP Handshakes | DNS Queries | ICMP -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+
+                    <!-- TCP Handshakes -->
+                    <div class="table-card">
+                        <div class="table-header">
+                            <h3><i class="fa-solid fa-handshake"></i> TCP Handshakes</h3>
+                            <span class="badge badge-info" id="m2-hs-count">0</span>
+                        </div>
+                        <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                            <table class="data-table">
+                                <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
+                                    <tr>
+                                        <th>Client</th>
+                                        <th>Server</th>
+                                        <th>Port</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="m2-handshakes-body">
+                                    <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:1.5rem;">No handshakes yet</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- DNS Queries -->
+                    <div class="table-card">
+                        <div class="table-header">
+                            <h3><i class="fa-solid fa-globe"></i> DNS Queries</h3>
+                            <span class="badge badge-info" id="m2-dns-count">0</span>
+                        </div>
+                        <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                            <table class="data-table">
+                                <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Domain</th>
+                                        <th>Type</th>
+                                        <th>Source</th>
+                                        <th>DNS Server</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="m2-dns-body">
+                                    <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:1.5rem;">No DNS queries yet</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ICMP Statistics -->
+                <div class="table-card" style="margin-bottom:1.5rem;">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-network-wired"></i> ICMP Statistics</h3>
+                        <span class="badge badge-info" id="m2-icmp-total">0</span>
+                    </div>
+                    <div style="display:flex;gap:2rem;padding:1rem 1.25rem;flex-wrap:wrap;">
+                        <div class="m2-stat-tile" style="text-align:center;min-width:130px;">
+                            <div style="font-size:0.8rem;color:#9ca3af;margin-bottom:0.3rem;">Echo Request (ping)</div>
+                            <div class="m2-stat-num" id="m2-icmp-req">0</div>
+                        </div>
+                        <div class="m2-stat-tile" style="text-align:center;min-width:130px;">
+                            <div style="font-size:0.8rem;color:#9ca3af;margin-bottom:0.3rem;">Echo Reply</div>
+                            <div class="m2-stat-num" id="m2-icmp-rep">0</div>
+                        </div>
+                        <div class="m2-stat-tile" style="text-align:center;min-width:130px;">
+                            <div style="font-size:0.8rem;color:#9ca3af;margin-bottom:0.3rem;">Other ICMP</div>
+                            <div class="m2-stat-num" id="m2-icmp-other">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TCP 3-Way Handshake Educator -->
+                <div class="handshake-card">
+                    <h3><i class="fa-solid fa-diagram-project"></i> TCP 3-Way Handshake Reference</h3>
+                    <div class="handshake-steps">
+                        <div class="step-box">
+                            <span class="step-num">Step 1</span>
+                            <h4>SYN Sent</h4>
+                            <p>Client &rarr; Server [SYN] Seq=0</p>
+                        </div>
+                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="step-box">
+                            <span class="step-num">Step 2</span>
+                            <h4>SYN-ACK Received</h4>
+                            <p>Server &rarr; Client [SYN, ACK] Seq=0 Ack=1</p>
+                        </div>
+                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="step-box">
+                            <span class="step-num">Step 3</span>
+                            <h4>ACK Sent</h4>
+                            <p>Client &rarr; Server [ACK] Seq=1 Ack=1 (Established)</p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -432,6 +626,6 @@
     <div id="toast" class="toast hidden"></div>
 
     <!-- Dashboard JS Script -->
-    <script src="/static/dashboard.js"></script>
+    <script src="/static/dashboard.js?v=15"></script>
 </body>
 </html>
