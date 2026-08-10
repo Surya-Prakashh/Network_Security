@@ -11,11 +11,12 @@ Interfacing with:
 
 import os
 import json
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, Response
 
 # Import local modules
 from module1_network_discovery.scanner import (
     run_single_nmap_command,
+    stream_nmap_command_events,
     get_network_interfaces_info
 )
 from module2_packet_capture.sniffer import analyze_pcap
@@ -103,6 +104,14 @@ def api_module1_scan():
         with open(scan_file, "r", encoding="utf-8") as f:
             return jsonify(json.load(f))
     return jsonify(run_single_nmap_command("service_scan", "127.0.0.1"))
+
+
+@app.route("/api/module1/stream-scan", methods=["GET"])
+def api_module1_stream_scan():
+    """Streams live Nmap CLI stdout lines and progress percentage using SSE."""
+    cmd_type = request.args.get("cmd_type", "service_scan")
+    target = request.args.get("target", "")
+    return Response(stream_nmap_command_events(cmd_type, target), mimetype="text/event-stream")
 
 
 @app.route("/api/module1/terminal", methods=["GET"])
