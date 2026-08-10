@@ -13,7 +13,7 @@
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=10">
 </head>
 <body>
     <!-- Top Navigation Header -->
@@ -155,41 +155,55 @@
                 <!-- Network Interface Info (ipconfig) Card -->
                 <div class="control-card" style="flex-direction: column; align-items: flex-start; gap: 0.75rem;">
                     <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                        <h3 style="font-size: 1rem; color: var(--accent-cyan);"><i class="fa-solid fa-network-wired"></i> Local Network Subnet (ipconfig)</h3>
-                        <button class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;" onclick="loadNetworkInfo()">
-                            <i class="fa-solid fa-rotate"></i> Detect Subnet
-                        </button>
+                        <h3 style="font-size: 1rem; color: var(--accent-cyan);"><i class="fa-solid fa-network-wired"></i> Step 1: Local Network Interface & Subnet (ipconfig)</h3>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;" onclick="viewRawIpconfig()">
+                                <i class="fa-solid fa-terminal"></i> Show Raw ipconfig Log
+                            </button>
+                            <button class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;" onclick="loadNetworkInfo()">
+                                <i class="fa-solid fa-rotate"></i> Refresh Subnet
+                            </button>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 2rem; font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap;">
                         <span>IPv4 Address: <strong id="net-ip" style="color:#fff;">Detecting...</strong></span>
                         <span>Default Gateway: <strong id="net-gw" style="color:#fff;">Detecting...</strong></span>
                         <span>Subnet Mask: <strong id="net-mask" style="color:#fff;">Detecting...</strong></span>
-                        <span>Auto-Detected Subnet: <strong id="net-cidr" style="color:var(--accent-yellow);">Detecting...</strong></span>
+                        <span>Auto-Calculated Subnet: <strong id="net-cidr" style="color:var(--accent-yellow);">Detecting...</strong></span>
                     </div>
                 </div>
 
                 <!-- Dynamic Command Pipeline Bar -->
                 <div class="control-card">
-                    <div class="input-group" style="flex-wrap: wrap; gap: 0.5rem; width: 100%;">
-                        <label for="targetSubnet"><i class="fa-solid fa-crosshairs"></i> Target Host / Subnet:</label>
-                        <input type="text" id="targetSubnet" value="192.168.160.0/19" placeholder="e.g. 192.168.160.0/19 or 192.168.160.1" style="width: 240px;">
-                        
-                        <!-- Individual Nmap Command Buttons -->
-                        <div class="action-group" style="flex-wrap: wrap;">
-                            <button class="btn btn-secondary" onclick="executeNmapCmd('ping_sweep')">
-                                <i class="fa-solid fa-radar"></i> Ping Sweep (-sn)
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <label for="targetSubnet"><strong>Target Subnet / IP:</strong></label>
+                                <input type="text" id="targetSubnet" value="192.168.160.0/19" placeholder="e.g. 192.168.160.0/19 or 192.168.160.1" style="width: 220px;">
+                                
+                                <label for="discoveredIpSelect" style="margin-left: 1rem;"><strong>Discovered Active Hosts:</strong></label>
+                                <select id="discoveredIpSelect" class="form-control" style="width: 240px;" onchange="document.getElementById('targetSubnet').value = this.value">
+                                    <option value="">(Run Ping Sweep to populate)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Command Sequence Step Buttons -->
+                        <div class="action-group" style="flex-wrap: wrap; gap: 0.6rem; margin-top: 0.4rem;">
+                            <button class="btn btn-primary" onclick="executeNmapCmd('ping_sweep')">
+                                <i class="fa-solid fa-radar"></i> Step 2: Ping Sweep (-sn)
                             </button>
                             <button class="btn btn-secondary" onclick="executeNmapCmd('basic_scan')">
-                                <i class="fa-solid fa-search"></i> Basic Scan
+                                <i class="fa-solid fa-search"></i> Step 3: Basic Scan (nmap IP)
                             </button>
                             <button class="btn btn-secondary" onclick="executeNmapCmd('service_scan')">
-                                <i class="fa-solid fa-gear"></i> Service Version (-sV)
+                                <i class="fa-solid fa-gear"></i> Step 4: Service Versions (-sV)
                             </button>
                             <button class="btn btn-secondary" onclick="executeNmapCmd('os_scan')">
-                                <i class="fa-solid fa-desktop"></i> OS Detection (-O)
+                                <i class="fa-solid fa-desktop"></i> Step 5: OS Detection (-O)
                             </button>
-                            <button class="btn btn-primary" onclick="executeNmapCmd('aggressive_scan')">
-                                <i class="fa-solid fa-bolt"></i> Aggressive Scan (-A)
+                            <button class="btn btn-warning" onclick="executeNmapCmd('aggressive_scan')">
+                                <i class="fa-solid fa-bolt"></i> Step 6: Aggressive Audit (-A)
                             </button>
                         </div>
                     </div>
@@ -198,10 +212,15 @@
                 <!-- Nmap Terminal Execution Output Console -->
                 <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem;">
                     <div class="table-header">
-                        <h3><i class="fa-solid fa-terminal"></i> Live Nmap CLI Execution Output</h3>
-                        <span class="badge badge-info" id="m1-engine-badge">Live Real Nmap</span>
+                        <h3><i class="fa-solid fa-terminal"></i> Live Terminal CLI Log Output</h3>
+                        <div>
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="navigator.clipboard.writeText(document.getElementById('nmapTerminalConsole').textContent); showToast('Terminal log copied!');">
+                                <i class="fa-regular fa-copy"></i> Copy Terminal Output
+                            </button>
+                            <span class="badge badge-info" id="m1-engine-badge" style="margin-left:0.5rem;">Live Real CLI</span>
+                        </div>
                     </div>
-                    <pre id="nmapTerminalConsole" style="background: #000; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; overflow-x: auto; max-height: 320px; white-space: pre-wrap;">Loading Nmap terminal output...</pre>
+                    <pre id="nmapTerminalConsole" style="background: #090d16; color: #00ff66; padding: 1.25rem; border-radius: 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85rem; overflow-x: auto; max-height: 350px; white-space: pre-wrap; border: 1px solid rgba(0,255,102,0.2);">Loading CLI output...</pre>
                 </div>
 
                 <!-- Host Cards Grid -->
@@ -432,6 +451,6 @@
     <div id="toast" class="toast hidden"></div>
 
     <!-- Dashboard JS Script -->
-    <script src="/static/dashboard.js"></script>
+    <script src="/static/dashboard.js?v=10"></script>
 </body>
 </html>

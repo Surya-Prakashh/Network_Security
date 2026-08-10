@@ -75,7 +75,8 @@ def get_network_interfaces_info():
         "local_ip": local_ip,
         "default_gateway": gateway,
         "subnet_mask": subnet_mask,
-        "subnet_cidr": subnet_cidr
+        "subnet_cidr": subnet_cidr,
+        "raw_ipconfig": cmd_out if 'cmd_out' in locals() else "ipconfig command unavailable."
     }
 
 
@@ -165,6 +166,43 @@ def parse_nmap_xml(xml_content):
     return hosts_data
 
 
+def parse_nmap_text_output(text):
+    """Parses raw text stdout from Nmap CLI into hosts list."""
+    hosts = []
+    current_host = None
+
+    for line in text.splitlines():
+        line = line.strip()
+        # Nmap scan report for 192.168.160.2 or localhost (127.0.0.1)
+        report_match = re.search(r"Nmap scan report for (?:([^\s()]+)\s+\()?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\)?", line)
+        if report_match:
+            if current_host:
+                hosts.append(current_host)
+            hostname = report_match.group(1) or report_match.group(2)
+            ip = report_match.group(2)
+            current_host = {
+                "ip": ip,
+                "status": "up",
+                "hostname": hostname,
+                "mac_address": "N/A",
+                "vendor": "Unknown",
+                "os_details": "N/A",
+                "ports": []
+            }
+            continue
+
+        # MAC Address: 78:48:59:B7:66:A0 (Hewlett Packard)
+        mac_match = re.search(r"MAC Address:\s+([0-9A-Fa-f:]+)\s*(?:\((.*?)\))?", line)
+        if mac_match and current_host:
+            current_host["mac_address"] = mac_match.group(1)
+            current_host["vendor"] = mac_match.group(2) or "Unknown"
+
+    if current_host:
+        hosts.append(current_host)
+
+    return hosts
+
+
 def run_single_nmap_command(cmd_type, target):
     """
     Executes a specific Nmap command mode:
@@ -229,6 +267,8 @@ def run_single_nmap_command(cmd_type, target):
         print(f"[!] XML execution warning: {e}")
 
     hosts_data = parse_nmap_xml(xml_out)
+    if not hosts_data:
+        hosts_data = parse_nmap_text_output(terminal_out)
 
     # Save to terminal log
     script_dir = os.path.dirname(os.path.abspath(__file__))

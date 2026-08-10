@@ -168,6 +168,39 @@ function loadNetworkInfo() {
         });
 }
 
+function viewRawIpconfig() {
+    showToast("Retrieving raw ipconfig output...");
+    fetch("/api/network-info")
+        .then(res => res.json())
+        .then(net => {
+            const consoleElem = document.getElementById("nmapTerminalConsole");
+            consoleElem.textContent = `$ ipconfig\n\n${net.raw_ipconfig || 'No ipconfig output returned.'}`;
+            document.getElementById("m1-engine-badge").textContent = "ipconfig";
+        });
+}
+
+function updateDiscoveredHostDropdown(hosts) {
+    const select = document.getElementById("discoveredIpSelect");
+    if (!select) return;
+    
+    // Save current selection if valid
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Select Discovered Active Host --</option>';
+
+    if (!hosts || hosts.length === 0) {
+        select.innerHTML = '<option value="">(No active hosts found yet)</option>';
+        return;
+    }
+
+    hosts.forEach(h => {
+        const opt = document.createElement("option");
+        opt.value = h.ip;
+        opt.textContent = `${h.ip} (${h.hostname}) ${h.mac_address !== 'N/A' ? '- MAC: ' + h.mac_address : ''}`;
+        if (h.ip === currentVal) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
 function loadModule1Data() {
     loadNetworkInfo();
     fetch("/api/module1/scan")
@@ -184,6 +217,8 @@ function loadModule1Data() {
 
             const hostsGrid = document.getElementById("hostsGrid");
             hostsGrid.innerHTML = "";
+
+            updateDiscoveredHostDropdown(data.hosts || []);
 
             (data.hosts || []).forEach(host => {
                 const card = document.createElement("div");
@@ -207,6 +242,7 @@ function loadModule1Data() {
                     <div class="host-details">
                         <div><strong>Hostname:</strong> ${host.hostname}</div>
                         <div><strong>MAC Address:</strong> ${host.mac_address}</div>
+                        <div><strong>Vendor / Hardware:</strong> ${host.vendor}</div>
                         <div><strong>Detected OS:</strong> ${host.os_details}</div>
                     </div>
                     <h4>Open Services (${(host.ports || []).length}):</h4>
