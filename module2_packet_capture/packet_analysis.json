@@ -1,0 +1,142 @@
+{
+    "timestamp": "2026-08-10T11:34:30.623919",
+    "total_packets_captured": 10,
+    "protocol_summary": {
+        "TCP": 4,
+        "UDP": 1,
+        "DNS": 2,
+        "HTTP": 1,
+        "HTTPS": 1,
+        "ICMP": 2
+    },
+    "packets": [
+        {
+            "id": 1,
+            "timestamp": "10:15:01.102",
+            "src_ip": "192.168.1.105",
+            "dst_ip": "192.168.1.1",
+            "protocol": "ICMP",
+            "length": 74,
+            "details": "Echo (ping) request id=0x0001 seq=1/256 ttl=128",
+            "packet_type": "Ping",
+            "tcp_handshake": null,
+            "dns_lookup": null
+        },
+        {
+            "id": 2,
+            "timestamp": "10:15:01.104",
+            "src_ip": "192.168.1.1",
+            "dst_ip": "192.168.1.105",
+            "protocol": "ICMP",
+            "length": 74,
+            "details": "Echo (ping) reply id=0x0001 seq=1/256 ttl=64",
+            "packet_type": "Ping",
+            "tcp_handshake": null,
+            "dns_lookup": null
+        },
+        {
+            "id": 3,
+            "timestamp": "10:15:03.210",
+            "src_ip": "192.168.1.105",
+            "dst_ip": "8.8.8.8",
+            "protocol": "DNS",
+            "length": 78,
+            "details": "Standard query 0x1a2b A www.google.com",
+            "packet_type": "DNS",
+            "tcp_handshake": null,
+            "dns_lookup": {
+                "query_name": "www.google.com",
+                "query_type": "A",
+                "response_ip": null
+            }
+        },
+        {
+            "id": 4,
+            "timestamp": "10:15:03.245",
+            "src_ip": "8.8.8.8",
+            "dst_ip": "192.168.1.105",
+            "protocol": "DNS",
+            "length": 94,
+            "details": "Standard query response 0x1a2b A www.google.com A 142.250.190.46",
+            "packet_type": "DNS",
+            "tcp_handshake": null,
+            "dns_lookup": {
+                "query_name": "www.google.com",
+                "query_type": "A",
+                "response_ip": "142.250.190.46"
+            }
+        },
+        {
+            "id": 5,
+            "timestamp": "10:15:04.001",
+            "src_ip": "192.168.1.105",
+            "dst_ip": "142.250.190.46",
+            "protocol": "TCP",
+            "length": 66,
+            "details": "54321 -> 443 [SYN] Seq=0 Win=64240 Len=0 MSS=1460",
+            "packet_type": "TCP Handshake Step 1",
+            "tcp_handshake": "SYN Sent (Step 1)",
+            "dns_lookup": null
+        },
+        {
+            "id": 6,
+            "timestamp": "10:15:04.025",
+            "src_ip": "142.250.190.46",
+            "dst_ip": "192.168.1.105",
+            "protocol": "TCP",
+            "length": 66,
+            "details": "443 -> 54321 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0",
+            "packet_type": "TCP Handshake Step 2",
+            "tcp_handshake": "SYN-ACK Received (Step 2)",
+            "dns_lookup": null
+        },
+        {
+            "id": 7,
+            "timestamp": "10:15:04.026",
+            "src_ip": "192.168.1.105",
+            "dst_ip": "142.250.190.46",
+            "protocol": "TCP",
+            "length": 54,
+            "details": "54321 -> 443 [ACK] Seq=1 Ack=1 Win=64240 Len=0",
+            "packet_type": "TCP Handshake Step 3",
+            "tcp_handshake": "ACK Sent (Connection Established - Step 3)",
+            "dns_lookup": null
+        },
+        {
+            "id": 8,
+            "timestamp": "10:15:04.110",
+            "src_ip": "192.168.1.105",
+            "dst_ip": "142.250.190.46",
+            "protocol": "HTTPS",
+            "length": 517,
+            "details": "Client Hello (Browsing Website - TLS v1.3 encrypted web traffic)",
+            "packet_type": "Browsing",
+            "tcp_handshake": null,
+            "dns_lookup": null
+        },
+        {
+            "id": 9,
+            "timestamp": "10:15:06.500",
+            "src_ip": "192.168.1.120",
+            "dst_ip": "192.168.1.105",
+            "protocol": "HTTP",
+            "length": 340,
+            "details": "GET /file_download.zip HTTP/1.1 (Downloading a file over plain HTTP)",
+            "packet_type": "Downloading File",
+            "tcp_handshake": null,
+            "dns_lookup": null
+        },
+        {
+            "id": 10,
+            "timestamp": "10:15:07.120",
+            "src_ip": "192.168.1.105",
+            "dst_ip": "192.168.1.1",
+            "protocol": "UDP",
+            "length": 128,
+            "details": "NTP Time Synchronization Request SrcPort=123 DstPort=123",
+            "packet_type": "UDP Traffic",
+            "tcp_handshake": null,
+            "dns_lookup": null
+        }
+    ]
+}

@@ -1,0 +1,57 @@
+{
+    "generated_at": "2026-08-10T11:51:06.820333",
+    "summary": {
+        "total_hosts_evaluated": 101,
+        "unnecessary_open_ports_count": 0,
+        "insecure_protocols_found": [
+            "HTTP",
+            "DNS"
+        ],
+        "recommended_firewall_rules_count": 0,
+        "security_score": 80
+    },
+    "unnecessary_ports": [],
+    "insecure_protocols": [
+        {
+            "protocol": "HTTP",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
+            }
+        },
+        {
+            "protocol": "DNS",
+            "details": {
+                "severity": "Low",
+                "mitigation": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."
+            }
+        }
+    ],
+    "recommended_firewall_rules": [],
+    "security_improvements": [
+        {
+            "category": "Insecure Protocol: HTTP",
+            "severity": "Medium",
+            "finding": "Detected plain-text HTTP traffic across network.",
+            "action_item": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
+        },
+        {
+            "category": "Insecure Protocol: DNS",
+            "severity": "Low",
+            "finding": "Detected plain-text DNS traffic across network.",
+            "action_item": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."
+        },
+        {
+            "category": "Network Segmentation & Isolation",
+            "severity": "High",
+            "finding": "Management devices and IoT cameras share the same subnet as workstations.",
+            "action_item": "Isolate IoT devices and IP cameras onto a dedicated VLAN with strict inter-VLAN firewall routing."
+        },
+        {
+            "category": "MAC Address Privacy & Spoofing Defense",
+            "severity": "Medium",
+            "finding": "Static MAC filtering is vulnerable to MAC address spoofing (Phase 3 testing).",
+            "action_item": "Enforce 802.1X Port-Based Network Access Control (NAC) instead of relying solely on MAC filtering."
+        }
+    ]
+}

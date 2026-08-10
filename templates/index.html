@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Analysis & MAC Spoofing Suite</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header class="navbar">
+        <div class="logo-container">
+            <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div>
+                <h1 class="logo-title">CyberShield Network Suite</h1>
+                <p class="logo-subtitle">Network Discovery • Packet Analysis • MAC Spoofing • Security Audit</p>
+            </div>
+        </div>
+        <div class="system-status">
+            <span class="status-indicator active"></span>
+            <span class="status-text">Local Assessment Active</span>
+        </div>
+    </header>
+
+    <!-- App Layout Container -->
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-menu">
+                <button class="nav-btn active" data-tab="overview">
+                    <i class="fa-solid fa-chart-pie"></i> Executive Overview
+                </button>
+                <button class="nav-btn" data-tab="module1">
+                    <i class="fa-solid fa-network-wired"></i> Module 1: Discovery
+                    <span class="badge badge-m1">Phase 1</span>
+                </button>
+                <button class="nav-btn" data-tab="module2">
+                    <i class="fa-solid fa-wave-square"></i> Module 2: Packet Capture
+                    <span class="badge badge-m2">Phase 2</span>
+                </button>
+                <button class="nav-btn" data-tab="module3">
+                    <i class="fa-solid fa-fingerprint"></i> Module 3: MAC Spoofing
+                    <span class="badge badge-m3">Phase 3</span>
+                </button>
+                <button class="nav-btn" data-tab="phase4">
+                    <i class="fa-solid fa-user-shield"></i> Phase 4: Security Audit
+                    <span class="badge badge-sec">Phase 4</span>
+                </button>
+            </div>
+
+            <div class="team-footer">
+                <p class="team-title"><i class="fa-solid fa-users"></i> Project Architecture</p>
+                <div class="team-members">
+                    <div class="member-tag">Folder 1: Nmap Scanner</div>
+                    <div class="member-tag">Folder 2: Packet Capture</div>
+                    <div class="member-tag">Folder 3: MAC Changer</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- TAB 1: EXECUTIVE OVERVIEW -->
+            <section id="overview" class="tab-content active">
+                <div class="section-header">
+                    <h2>Network Health & Assessment Overview</h2>
+                    <button class="btn btn-primary" onclick="refreshAllData()">
+                        <i class="fa-solid fa-arrows-rotate"></i> Refresh Dashboard Data
+                    </button>
+                </div>
+
+                <!-- KPI Metric Cards -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon blue"><i class="fa-solid fa-server"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Active Hosts Found</span>
+                            <h3 class="kpi-value" id="kpi-hosts">0</h3>
+                            <span class="kpi-sub">Network Discovery (Phase 1)</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon purple"><i class="fa-solid fa-bars-staggered"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Network Packets Analyzed</span>
+                            <h3 class="kpi-value" id="kpi-packets">0</h3>
+                            <span class="kpi-sub">Traffic Capture (Phase 2)</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon orange"><i class="fa-solid fa-id-card"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">MAC Address Status</span>
+                            <h3 class="kpi-value" id="kpi-mac-status">Normal</h3>
+                            <span class="kpi-sub" id="kpi-mac-addr">00:00:00:00:00:00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon green"><i class="fa-solid fa-shield-heart"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Security Posture Score</span>
+                            <h3 class="kpi-value" id="kpi-sec-score">0 / 100</h3>
+                            <span class="kpi-sub" id="kpi-vuln-count">0 Open Vulnerabilities</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overview Charts Row -->
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-pie"></i> Protocol Breakdown (Wireshark/PyShark)</h3>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="overviewProtocolChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-column"></i> Discovered Open Ports (Nmap)</h3>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="overviewPortChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: MODULE 1 NETWORK DISCOVERY -->
+            <section id="module1" class="tab-content">
+                <div class="section-header">
+                    <div>
+                        <h2>Module 1: Network Discovery (Nmap Automation)</h2>
+                        <p class="section-desc">Folder: <code>module1_network_discovery/</code> • Discovers active hosts, OS, TCP ports, running services, and service versions.</p>
+                    </div>
+                    <div class="action-group">
+                        <a href="/download/module1_network_discovery/scan_results.csv" class="btn btn-outline">
+                            <i class="fa-solid fa-file-csv"></i> Download CSV
+                        </a>
+                        <button class="btn btn-primary" onclick="triggerNmapScan()">
+                            <i class="fa-solid fa-play"></i> Run Nmap Scan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <div class="input-group">
+                        <label for="targetSubnet"><i class="fa-solid fa-crosshairs"></i> Target Subnet IP Range:</label>
+                        <input type="text" id="targetSubnet" value="192.168.1.0/24" placeholder="e.g. 192.168.1.0/24">
+                    </div>
+                    <div class="scan-meta">
+                        <span><i class="fa-solid fa-clock"></i> Last Scan: <strong id="m1-scan-time">N/A</strong></span>
+                        <span><i class="fa-solid fa-microchip"></i> Engine: <strong id="m1-scan-mode">Nmap PortScanner</strong></span>
+                    </div>
+                </div>
+
+                <!-- Host Cards Grid -->
+                <div id="hostsGrid" class="hosts-grid">
+                    <!-- Host cards populated dynamically -->
+                </div>
+            </section>
+
+            <!-- TAB 3: MODULE 2 PACKET CAPTURE -->
+            <section id="module2" class="tab-content">
+                <div class="section-header">
+                    <div>
+                        <h2>Module 2: Packet Capture & Protocol Analysis (Wireshark/PyShark)</h2>
+                        <p class="section-desc">Folder: <code>module2_packet_capture/</code> • Captures TCP (3-way handshake), UDP, DNS, HTTP/HTTPS, and ICMP traffic.</p>
+                    </div>
+                    <div class="action-group">
+                        <a href="/download/module2_packet_capture/packet_analysis.csv" class="btn btn-outline">
+                            <i class="fa-solid fa-file-csv"></i> Download CSV
+                        </a>
+                        <button class="btn btn-primary" onclick="triggerPacketCapture()">
+                            <i class="fa-solid fa-network-wired"></i> Capture & Dissect PCAP
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TCP Handshake Sequence Visualizer -->
+                <div class="handshake-card">
+                    <h3><i class="fa-solid fa-handshake"></i> TCP 3-Way Handshake Dissector</h3>
+                    <div class="handshake-steps">
+                        <div class="step-box">
+                            <span class="step-num">Step 1</span>
+                            <h4>SYN Sent</h4>
+                            <p>Client -> Server [SYN] Seq=0</p>
+                        </div>
+                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="step-box">
+                            <span class="step-num">Step 2</span>
+                            <h4>SYN-ACK Received</h4>
+                            <p>Server -> Client [SYN, ACK] Seq=0 Ack=1</p>
+                        </div>
+                        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="step-box">
+                            <span class="step-num">Step 3</span>
+                            <h4>ACK Sent</h4>
+                            <p>Client -> Server [ACK] Seq=1 Ack=1 (Established)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Packets Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>Captured Packets Stream</h3>
+                        <span class="badge badge-info" id="packet-count-badge">0 Packets</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Time</th>
+                                    <th>Source IP</th>
+                                    <th>Destination IP</th>
+                                    <th>Protocol</th>
+                                    <th>Length (B)</th>
+                                    <th>Details</th>
+                                    <th>TCP Handshake / DNS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packetsTableBody">
+                                <!-- Packets dynamically loaded -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: MODULE 3 MAC SPOOFING -->
+            <section id="module3" class="tab-content">
+                <div class="section-header">
+                    <div>
+                        <h2>Module 3: MAC Address Spoofing & Privacy Testing (SMAC)</h2>
+                        <p class="section-desc">Folder: <code>module3_mac_spoofing/</code> • View, change, restart adapter, verify, and restore network hardware addresses.</p>
+                    </div>
+                </div>
+
+                <div class="mac-control-grid">
+                    <!-- Control Panel Card -->
+                    <div class="mac-card">
+                        <h3><i class="fa-solid fa-sliders"></i> MAC Spoofing Control Panel</h3>
+                        
+                        <div class="form-group">
+                            <label for="adapterSelect">Target Network Adapter:</label>
+                            <select id="adapterSelect" class="form-control">
+                                <option value="Wi-Fi">Wi-Fi Adapter</option>
+                                <option value="Ethernet">Ethernet Adapter</option>
+                            </select>
+                        </div>
+
+                        <div class="mac-info-box">
+                            <div class="mac-row">
+                                <span>Original Hardware MAC:</span>
+                                <strong id="origMacDisplay">F4:6D:04:88:99:AA</strong>
+                            </div>
+                            <div class="mac-row">
+                                <span>Current Active MAC:</span>
+                                <strong id="currMacDisplay" class="highlight-mac">F4:6D:04:88:99:AA</strong>
+                            </div>
+                            <div class="mac-row">
+                                <span>Spoofing Status:</span>
+                                <span id="spoofStatusBadge" class="status-badge normal">Original MAC Active</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newMacInput">New MAC Address:</label>
+                            <div class="input-with-btn">
+                                <input type="text" id="newMacInput" placeholder="e.g. 02:AB:CD:12:34:56" class="form-control">
+                                <button class="btn btn-secondary" onclick="generateRandomMacInInput()">
+                                    <i class="fa-solid fa-dice"></i> Random
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="btn-group-stacked">
+                            <button class="btn btn-primary btn-block" onclick="executeChangeMac()">
+                                <i class="fa-solid fa-bolt"></i> Change MAC & Restart Adapter
+                            </button>
+                            <button class="btn btn-warning btn-block" onclick="executeRestoreMac()">
+                                <i class="fa-solid fa-rotate-left"></i> Restore Original MAC Address
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- MAC Activity Log Card -->
+                    <div class="mac-card">
+                        <h3><i class="fa-solid fa-list-check"></i> MAC Spoofing Activity & Audit Log</h3>
+                        <div class="table-responsive log-scroll">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Action</th>
+                                        <th>Adapter</th>
+                                        <th>Target MAC</th>
+                                        <th>Verified</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="macLogTableBody">
+                                    <!-- Dynamic logs -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: PHASE 4 SECURITY AUDIT -->
+            <section id="phase4" class="tab-content">
+                <div class="section-header">
+                    <div>
+                        <h2>Phase 4: Security Assessment & Hardening Recommendations</h2>
+                        <p class="section-desc">Identifies unnecessary open ports, unencrypted protocols, generates Windows Defender Firewall rules, and security improvements.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="triggerSecurityAudit()">
+                        <i class="fa-solid fa-shield-virus"></i> Re-Analyze Security Posture
+                    </button>
+                </div>
+
+                <!-- Vulnerable Ports & Insecure Protocols Row -->
+                <div class="sec-grid">
+                    <div class="sec-card">
+                        <div class="sec-card-header red">
+                            <h3><i class="fa-solid fa-triangle-exclamation"></i> Unnecessary / Risky Open Ports</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Target IP</th>
+                                        <th>Port #</th>
+                                        <th>Service</th>
+                                        <th>Risk Level</th>
+                                        <th>Vulnerability Rationale</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="riskyPortsTableBody">
+                                    <!-- Dynamic risky ports -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="sec-card">
+                        <div class="sec-card-header yellow">
+                            <h3><i class="fa-solid fa-lock-open"></i> Insecure Protocols Identified</h3>
+                        </div>
+                        <div id="insecureProtoContainer" class="proto-container">
+                            <!-- Insecure protocols cards -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Firewall Recommendations Section -->
+                <div class="sec-card margin-top-lg">
+                    <div class="sec-card-header blue">
+                        <h3><i class="fa-solid fa-fire-burner"></i> Recommended Firewall Rules (Windows Defender & Linux ufw)</h3>
+                    </div>
+                    <div id="firewallRulesContainer" class="firewall-container">
+                        <!-- Firewall commands dynamic -->
+                    </div>
+                </div>
+
+                <!-- Security Hardening Improvements -->
+                <div class="sec-card margin-top-lg">
+                    <div class="sec-card-header green">
+                        <h3><i class="fa-solid fa-square-check"></i> Security Improvements & Actionable Checklist</h3>
+                    </div>
+                    <div id="securityChecklistContainer" class="checklist-container">
+                        <!-- Checklist dynamic -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Dashboard JS Script -->
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

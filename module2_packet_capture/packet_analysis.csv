@@ -1,0 +1,11 @@
+ID,Timestamp,Source IP,Destination IP,Protocol,Length,Details,TCP Handshake,DNS Query
+1,10:15:01.102,192.168.1.105,192.168.1.1,ICMP,74,Echo (ping) request id=0x0001 seq=1/256 ttl=128,N/A,N/A
+2,10:15:01.104,192.168.1.1,192.168.1.105,ICMP,74,Echo (ping) reply id=0x0001 seq=1/256 ttl=64,N/A,N/A
+3,10:15:03.210,192.168.1.105,8.8.8.8,DNS,78,Standard query 0x1a2b A www.google.com,N/A,www.google.com
+4,10:15:03.245,8.8.8.8,192.168.1.105,DNS,94,Standard query response 0x1a2b A www.google.com A 142.250.190.46,N/A,www.google.com
+5,10:15:04.001,192.168.1.105,142.250.190.46,TCP,66,54321 -> 443 [SYN] Seq=0 Win=64240 Len=0 MSS=1460,SYN Sent (Step 1),N/A
+6,10:15:04.025,142.250.190.46,192.168.1.105,TCP,66,"443 -> 54321 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0",SYN-ACK Received (Step 2),N/A
+7,10:15:04.026,192.168.1.105,142.250.190.46,TCP,54,54321 -> 443 [ACK] Seq=1 Ack=1 Win=64240 Len=0,ACK Sent (Connection Established - Step 3),N/A
+8,10:15:04.110,192.168.1.105,142.250.190.46,HTTPS,517,Client Hello (Browsing Website - TLS v1.3 encrypted web traffic),N/A,N/A
+9,10:15:06.500,192.168.1.120,192.168.1.105,HTTP,340,GET /file_download.zip HTTP/1.1 (Downloading a file over plain HTTP),N/A,N/A
+10,10:15:07.120,192.168.1.105,192.168.1.1,UDP,128,NTP Time Synchronization Request SrcPort=123 DstPort=123,N/A,N/A
