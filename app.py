@@ -4,7 +4,7 @@ Flask Server Dashboard for Network Analysis & MAC Spoofing Suite
 Serves backend REST API routes and interactive web dashboard UI.
 Interfacing with:
 - Module 1 (module1_network_discovery/scanner.py)
-- Module 2 (module2_packet_capture/sniffer.py)
+- Module 2 (module2_packet_capture/sniffer.py)  [real-time via SocketIO]
 - Module 3 (module3_mac_spoofing/mac_changer.py)
 - Phase 4 (security_analyzer.py)
 """
@@ -12,6 +12,7 @@ Interfacing with:
 import os
 import json
 from flask import Flask, render_template, jsonify, request, send_from_directory, Response
+from flask_socketio import SocketIO
 
 # Import local modules
 from module1_network_discovery.scanner import (
@@ -21,7 +22,7 @@ from module1_network_discovery.scanner import (
     get_command_history,
     clear_command_history
 )
-from module2_packet_capture.sniffer import analyze_pcap
+from module2_packet_capture.sniffer import analyze_pcap, capture_engine, get_interfaces
 from module3_mac_spoofing.mac_changer import (
     get_network_adapters, 
     view_current_mac, 
@@ -32,6 +33,8 @@ from module3_mac_spoofing.mac_changer import (
 from security_analyzer import analyze_security_posture
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
+# SocketIO in threading mode — works on Windows without eventlet/gevent
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading", logger=False, engineio_logger=False)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -137,17 +140,78 @@ def api_module1_terminal():
 
 @app.route("/api/module2/packets", methods=["GET", "POST"])
 def api_module2_packets():
-    """Trigger or fetch Phase 2 Packet Capture results."""
+    """Fetch saved packet analysis (from JSON) or analyze a PCAP file offline.
+    The real-time live-capture path now uses /api/module2/start instead."""
     packet_file = os.path.join(BASE_DIR, "module2_packet_capture", "packet_analysis.json")
     if request.method == "POST":
-        res = analyze_pcap()
+        data = request.json or {}
+        pcap_path = data.get("pcap")          # optional PCAP file path
+        res = analyze_pcap(pcap_filepath=pcap_path)
         analyze_security_posture()
         return jsonify(res)
-    
+
     if os.path.exists(packet_file):
         with open(packet_file, "r") as f:
             return jsonify(json.load(f))
     return jsonify(analyze_pcap())
+
+
+# ---------------------------------------------------------------------------
+# Module 2 Real-Time Capture Endpoints (Flask-SocketIO)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/module2/interfaces", methods=["GET"])
+def api_module2_interfaces():
+    """Return list of available network interfaces for the interface selector."""
+    return jsonify({"interfaces": get_interfaces()})
+
+
+@app.route("/api/module2/start", methods=["POST"])
+def api_module2_start():
+    """Start real-time packet capture on the selected interface."""
+    data = request.json or {}
+    interface = data.get("interface", "").strip()
+    if not interface:
+        return jsonify({"ok": False, "error": "No interface specified."}), 400
+    result = capture_engine.start(interface, socketio)
+    if result["ok"]:
+        return jsonify(result)
+    return jsonify(result), 400
+
+
+@app.route("/api/module2/stop", methods=["POST"])
+def api_module2_stop():
+    """Stop the running packet capture."""
+    result = capture_engine.stop()
+    return jsonify(result)
+
+
+@app.route("/api/module2/clear", methods=["POST"])
+def api_module2_clear():
+    """Clear all real-time capture state (packets, counters, DNS, handshakes)."""
+    capture_engine.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/module2/export", methods=["POST"])
+def api_module2_export():
+    """Export current in-memory capture to packet_analysis.json and .csv."""
+    try:
+        data = capture_engine.export_data()
+        return jsonify({
+            "ok": True,
+            "total_packets": data.get("total_packets_captured", 0),
+            "json_path": "module2_packet_capture/packet_analysis.json",
+            "csv_path": "module2_packet_capture/packet_analysis.csv",
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/module2/status", methods=["GET"])
+def api_module2_status():
+    """Return current capture engine status and statistics."""
+    return jsonify(capture_engine.get_status())
 
 
 @app.route("/api/module3/mac", methods=["GET", "POST"])
@@ -201,15 +265,13 @@ if __name__ == "__main__":
     scan_file = os.path.join(BASE_DIR, "module1_network_discovery", "scan_results.json")
     if not os.path.exists(scan_file):
         run_single_nmap_command("service_scan", "127.0.0.1")
-    
-    packet_file = os.path.join(BASE_DIR, "module2_packet_capture", "packet_analysis.json")
-    if not os.path.exists(packet_file):
-        analyze_pcap()
 
     analyze_security_posture()
-    
+
     print("\n=======================================================")
     print("[*] Network Analysis & MAC Spoofing Dashboard Started!")
     print("[*] Open Browser: http://127.0.0.1:5000")
+    print("[*] Module 2: Real-Time Packet Capture via SocketIO")
     print("=======================================================\n")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    # Use socketio.run() instead of app.run() to enable WebSocket support
+    socketio.run(app, host="127.0.0.1", port=5000, debug=False, allow_unsafe_werkzeug=True)

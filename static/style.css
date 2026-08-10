@@ -890,3 +890,56 @@ code {
     cursor: pointer;
     transition: all 0.2s ease;
 }
+
+/* ── Module 2 Real-Time Stat Tiles ──────────────────────────────────────── */
+.m2-stat-tile {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.m2-stat-tile:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.m2-stat-num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-main);
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+/* Flash animation when a counter increments */
+@keyframes m2-count-flash {
+    0%   { color: var(--accent-cyan); }
+    100% { color: var(--text-main); }
+}
+.m2-stat-num.flash {
+    animation: m2-count-flash 0.4s ease-out;
+}
+
+/* Button disabled state */
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Handshake status colours reuse risk-badge */
+.risk-badge.risk-low    { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+.risk-badge.risk-medium { background: rgba(245,158,11,0.15);  color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+.risk-badge.risk-high   { background: rgba(239,68,68,0.15);   color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+/* Proto tags for new protocols */
+.proto-tag { border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
+.proto-quic { background: rgba(16,185,129,0.15); color: #34d399; }
+.proto-other { background: rgba(239,68,68,0.15); color: #f87171; }

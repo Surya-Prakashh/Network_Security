@@ -1,286 +1,1750 @@
 """
 Module 2: Packet Capture & Protocol Analysis (Phase 2)
-------------------------------------------------------
-Captures and analyzes live/recorded network traffic. Extracts details for:
-- TCP (including 3-way handshake detection: SYN, SYN-ACK, ACK)
-- UDP
-- DNS requests and responses
-- HTTP / HTTPS traffic
-- ICMP (Ping)
-Reports Source IP, Destination IP, Protocol, Packet Length, TCP Handshake state, and DNS Lookups.
+=======================================================
+Captures and analyzes live/recorded network traffic. Supports:
+  - Live capture via Scapy (requires Administrator/root + Npcap on Windows)
+  - PCAP / PCAPNG file analysis via PyShark/TShark or Scapy
+  - Protocol detection: TCP, UDP, DNS, HTTP, HTTPS/TLS, ICMP, QUIC
+  - TCP three-way handshake detection (SYN -> SYN-ACK -> ACK)
+  - DNS query & response extraction
+  - ICMP echo request/reply identification
+  - HTTP method/host/URI extraction
+  - TLS version and SNI extraction
+  - JSON and CSV export
+
+Usage examples:
+  python sniffer.py --interface "Wi-Fi" --count 100
+  python sniffer.py --interface "Ethernet" --duration 30
+  python sniffer.py --pcap capture.pcapng
+  python sniffer.py --pcap capture.pcap --json-output out.json --csv-output out.csv
+  python sniffer.py --help
 """
 
-import json
+from __future__ import annotations
+
+import argparse
 import csv
+import datetime
+import json
 import os
 import sys
-import datetime
-import socket
+import traceback
+from typing import Any, Dict, List, Optional, Tuple
+
+# ---------------------------------------------------------------------------
+# Optional dependency detection
+# ---------------------------------------------------------------------------
+
+SCAPY_AVAILABLE = False
+PYSHARK_AVAILABLE = False
 
 try:
-    from scapy.all import rdpcap, IP, TCP, UDP, DNS, DNSQR, ICMP, Raw, wrpcap
+    from scapy.all import (
+        DNS, DNSQR, DNSRR, ICMP, IP, TCP, UDP, Raw,
+        conf as scapy_conf,
+        rdpcap,
+        sniff,
+    )
     SCAPY_AVAILABLE = True
 except ImportError:
-    SCAPY_AVAILABLE = False
+    pass
+
+try:
+    import pyshark  # type: ignore
+    PYSHARK_AVAILABLE = True
+except ImportError:
+    pass
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+HTTP_PORTS = {80, 8080, 8000, 8888}
+HTTPS_PORTS = {443, 8443}
+DNS_PORTS = {53}
+QUIC_PORTS = {443}
+
+ICMP_TYPE_NAMES = {
+    0: "Echo Reply",
+    3: "Destination Unreachable",
+    5: "Redirect",
+    8: "Echo Request",
+    11: "Time Exceeded",
+}
+
+DNS_QTYPE_NAMES = {
+    1: "A",
+    2: "NS",
+    5: "CNAME",
+    6: "SOA",
+    12: "PTR",
+    15: "MX",
+    16: "TXT",
+    28: "AAAA",
+    33: "SRV",
+    255: "ANY",
+}
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_JSON_PATH = os.path.join(SCRIPT_DIR, "packet_analysis.json")
+DEFAULT_CSV_PATH = os.path.join(SCRIPT_DIR, "packet_analysis.csv")
 
 
-def generate_sample_packets():
-    """Generates structured network traffic dataset covering all Phase 2 requirements."""
-    timestamp = datetime.datetime.now().isoformat()
-    
-    packets = [
-        {
-            "id": 1,
-            "timestamp": "10:15:01.102",
-            "src_ip": "192.168.1.105",
-            "dst_ip": "192.168.1.1",
-            "protocol": "ICMP",
-            "length": 74,
-            "details": "Echo (ping) request id=0x0001 seq=1/256 ttl=128",
-            "packet_type": "Ping",
-            "tcp_handshake": None,
-            "dns_lookup": None
-        },
-        {
-            "id": 2,
-            "timestamp": "10:15:01.104",
-            "src_ip": "192.168.1.1",
-            "dst_ip": "192.168.1.105",
-            "protocol": "ICMP",
-            "length": 74,
-            "details": "Echo (ping) reply id=0x0001 seq=1/256 ttl=64",
-            "packet_type": "Ping",
-            "tcp_handshake": None,
-            "dns_lookup": None
-        },
-        {
-            "id": 3,
-            "timestamp": "10:15:03.210",
-            "src_ip": "192.168.1.105",
-            "dst_ip": "8.8.8.8",
-            "protocol": "DNS",
-            "length": 78,
-            "details": "Standard query 0x1a2b A www.google.com",
-            "packet_type": "DNS",
-            "tcp_handshake": None,
-            "dns_lookup": {"query_name": "www.google.com", "query_type": "A", "response_ip": None}
-        },
-        {
-            "id": 4,
-            "timestamp": "10:15:03.245",
-            "src_ip": "8.8.8.8",
-            "dst_ip": "192.168.1.105",
-            "protocol": "DNS",
-            "length": 94,
-            "details": "Standard query response 0x1a2b A www.google.com A 142.250.190.46",
-            "packet_type": "DNS",
-            "tcp_handshake": None,
-            "dns_lookup": {"query_name": "www.google.com", "query_type": "A", "response_ip": "142.250.190.46"}
-        },
-        {
-            "id": 5,
-            "timestamp": "10:15:04.001",
-            "src_ip": "192.168.1.105",
-            "dst_ip": "142.250.190.46",
-            "protocol": "TCP",
-            "length": 66,
-            "details": "54321 -> 443 [SYN] Seq=0 Win=64240 Len=0 MSS=1460",
-            "packet_type": "TCP Handshake Step 1",
-            "tcp_handshake": "SYN Sent (Step 1)",
-            "dns_lookup": None
-        },
-        {
-            "id": 6,
-            "timestamp": "10:15:04.025",
-            "src_ip": "142.250.190.46",
-            "dst_ip": "192.168.1.105",
-            "protocol": "TCP",
-            "length": 66,
-            "details": "443 -> 54321 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0",
-            "packet_type": "TCP Handshake Step 2",
-            "tcp_handshake": "SYN-ACK Received (Step 2)",
-            "dns_lookup": None
-        },
-        {
-            "id": 7,
-            "timestamp": "10:15:04.026",
-            "src_ip": "192.168.1.105",
-            "dst_ip": "142.250.190.46",
-            "protocol": "TCP",
-            "length": 54,
-            "details": "54321 -> 443 [ACK] Seq=1 Ack=1 Win=64240 Len=0",
-            "packet_type": "TCP Handshake Step 3",
-            "tcp_handshake": "ACK Sent (Connection Established - Step 3)",
-            "dns_lookup": None
-        },
-        {
-            "id": 8,
-            "timestamp": "10:15:04.110",
-            "src_ip": "192.168.1.105",
-            "dst_ip": "142.250.190.46",
-            "protocol": "HTTPS",
-            "length": 517,
-            "details": "Client Hello (Browsing Website - TLS v1.3 encrypted web traffic)",
-            "packet_type": "Browsing",
-            "tcp_handshake": None,
-            "dns_lookup": None
-        },
-        {
-            "id": 9,
-            "timestamp": "10:15:06.500",
-            "src_ip": "192.168.1.120",
-            "dst_ip": "192.168.1.105",
-            "protocol": "HTTP",
-            "length": 340,
-            "details": "GET /file_download.zip HTTP/1.1 (Downloading a file over plain HTTP)",
-            "packet_type": "Downloading File",
-            "tcp_handshake": None,
-            "dns_lookup": None
-        },
-        {
-            "id": 10,
-            "timestamp": "10:15:07.120",
-            "src_ip": "192.168.1.105",
-            "dst_ip": "192.168.1.1",
-            "protocol": "UDP",
-            "length": 128,
-            "details": "NTP Time Synchronization Request SrcPort=123 DstPort=123",
-            "packet_type": "UDP Traffic",
-            "tcp_handshake": None,
-            "dns_lookup": None
-        }
-    ]
+# ---------------------------------------------------------------------------
+# Data structures
+# ---------------------------------------------------------------------------
 
-    protocol_summary = {
-        "TCP": 4,
-        "UDP": 1,
-        "DNS": 2,
-        "HTTP": 1,
-        "HTTPS": 1,
-        "ICMP": 2
+def empty_record() -> Dict[str, Any]:
+    """Return a packet record template with all fields as None."""
+    return {
+        "packet_number": None,
+        "timestamp": None,
+        "source_ip": None,
+        "destination_ip": None,
+        "protocol": None,
+        "packet_length": None,
+        "source_port": None,
+        "destination_port": None,
+        "tcp_flags": None,
+        "tcp_sequence": None,
+        "tcp_acknowledgment": None,
+        "dns_query": None,
+        "dns_query_type": None,
+        "dns_response": None,
+        "icmp_type": None,
+        "icmp_code": None,
+        "http_host": None,
+        "http_method": None,
+        "http_uri": None,
+        "tls_version": None,
+        "info": "",
     }
+
+
+# ---------------------------------------------------------------------------
+# Protocol detection helpers (Scapy)
+# ---------------------------------------------------------------------------
+
+def _scapy_tcp_flags(flags_int: int) -> str:
+    """Convert Scapy TCP flags integer to a human-readable string like 'SYN', 'SYN-ACK'."""
+    flag_map = [
+        (0x001, "FIN"),
+        (0x002, "SYN"),
+        (0x004, "RST"),
+        (0x008, "PSH"),
+        (0x010, "ACK"),
+        (0x020, "URG"),
+    ]
+    active = [name for bit, name in flag_map if flags_int & bit]
+    return "-".join(active) if active else str(flags_int)
+
+
+def _detect_protocol_scapy(pkt) -> str:
+    """Classify a Scapy packet into a named protocol string."""
+    if not IP in pkt:
+        return "OTHER"
+
+    if ICMP in pkt:
+        return "ICMP"
+
+    if TCP in pkt:
+        sport = pkt[TCP].sport
+        dport = pkt[TCP].dport
+        # DNS over TCP (rare but valid)
+        if sport in DNS_PORTS or dport in DNS_PORTS:
+            if DNS in pkt:
+                return "DNS"
+        if sport in HTTP_PORTS or dport in HTTP_PORTS:
+            return "HTTP"
+        if sport in HTTPS_PORTS or dport in HTTPS_PORTS:
+            return "HTTPS/TLS"
+        return "TCP"
+
+    if UDP in pkt:
+        sport = pkt[UDP].sport
+        dport = pkt[UDP].dport
+        if sport in DNS_PORTS or dport in DNS_PORTS:
+            if DNS in pkt:
+                return "DNS"
+        # QUIC rides on UDP 443
+        if sport in QUIC_PORTS or dport in QUIC_PORTS:
+            return "QUIC"
+        return "UDP"
+
+    return "IP"
+
+
+def _extract_dns_info_scapy(pkt) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Return (query_name, query_type, response_ip) from a Scapy DNS packet."""
+    query_name = None
+    query_type = None
+    response_ip = None
+
+    try:
+        if pkt.haslayer(DNSQR):
+            raw_name = pkt[DNSQR].qname
+            if isinstance(raw_name, bytes):
+                query_name = raw_name.decode("utf-8", errors="ignore").rstrip(".")
+            else:
+                query_name = str(raw_name).rstrip(".")
+            qtype_int = pkt[DNSQR].qtype
+            query_type = DNS_QTYPE_NAMES.get(qtype_int, str(qtype_int))
+
+        if pkt.haslayer(DNSRR):
+            rr = pkt[DNSRR]
+            if hasattr(rr, "rdata"):
+                rdata = rr.rdata
+                if isinstance(rdata, bytes):
+                    response_ip = rdata.decode("utf-8", errors="ignore").rstrip(".")
+                else:
+                    response_ip = str(rdata).rstrip(".")
+    except Exception:
+        pass
+
+    return query_name, query_type, response_ip
+
+
+def _extract_http_info_scapy(pkt) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Return (host, method, uri) from a Scapy packet carrying raw HTTP."""
+    host = method = uri = None
+    try:
+        if pkt.haslayer(Raw):
+            payload = pkt[Raw].load
+            if isinstance(payload, bytes):
+                payload = payload.decode("utf-8", errors="ignore")
+            lines = payload.split("\r\n")
+            if lines:
+                first_line = lines[0]
+                parts = first_line.split(" ")
+                if len(parts) >= 2 and parts[0] in (
+                    "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"
+                ):
+                    method = parts[0]
+                    uri = parts[1] if len(parts) > 1 else None
+            for line in lines[1:]:
+                if line.lower().startswith("host:"):
+                    host = line[5:].strip()
+                    break
+    except Exception:
+        pass
+    return host, method, uri
+
+
+def _extract_tls_info_scapy(pkt) -> Optional[str]:
+    """Attempt to identify TLS from raw payload (Client Hello starts with 0x16 0x03)."""
+    try:
+        if pkt.haslayer(Raw):
+            raw = pkt[Raw].load
+            if isinstance(raw, (bytes, bytearray)) and len(raw) >= 3:
+                if raw[0] == 0x16 and raw[1] == 0x03:
+                    minor = raw[2]
+                    tls_versions = {0: "TLS 1.0", 1: "TLS 1.1", 2: "TLS 1.2", 3: "TLS 1.3"}
+                    return tls_versions.get(minor, f"TLS 1.{minor}")
+    except Exception:
+        pass
+    return None
+
+
+def normalize_scapy_packet(pkt, idx: int) -> Optional[Dict[str, Any]]:
+    """
+    Convert a single Scapy packet into a normalized packet record dict.
+    Returns None if the packet has no IP layer.
+    """
+    if not SCAPY_AVAILABLE:
+        return None
+    try:
+        if not IP in pkt:
+            return None
+
+        rec = empty_record()
+        rec["packet_number"] = idx
+        rec["source_ip"] = pkt[IP].src
+        rec["destination_ip"] = pkt[IP].dst
+        rec["packet_length"] = len(pkt)
+
+        # Timestamp
+        try:
+            ts = float(pkt.time)
+            rec["timestamp"] = datetime.datetime.fromtimestamp(ts).strftime(
+                "%H:%M:%S.%f"
+            )[:-3]
+        except Exception:
+            rec["timestamp"] = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+        proto = _detect_protocol_scapy(pkt)
+        rec["protocol"] = proto
+
+        # ── TCP ──────────────────────────────────────────────────────────────
+        if TCP in pkt:
+            tcp = pkt[TCP]
+            rec["source_port"] = tcp.sport
+            rec["destination_port"] = tcp.dport
+            flags_int = int(tcp.flags)
+            rec["tcp_flags"] = _scapy_tcp_flags(flags_int)
+            rec["tcp_sequence"] = tcp.seq
+            rec["tcp_acknowledgment"] = tcp.ack
+
+            if proto == "HTTP":
+                host, method, uri = _extract_http_info_scapy(pkt)
+                rec["http_host"] = host
+                rec["http_method"] = method
+                rec["http_uri"] = uri
+                info_parts = []
+                if method and uri:
+                    info_parts.append(f"{method} {uri}")
+                if host:
+                    info_parts.append(f"Host: {host}")
+                rec["info"] = " | ".join(info_parts) if info_parts else f"HTTP {tcp.sport}->{tcp.dport}"
+
+            elif proto == "HTTPS/TLS":
+                tls_ver = _extract_tls_info_scapy(pkt)
+                rec["tls_version"] = tls_ver
+                rec["info"] = f"TLS {tls_ver or ''} {tcp.sport}->{tcp.dport} [{rec['tcp_flags']}]".strip()
+
+            else:
+                # DNS over TCP
+                if DNS in pkt:
+                    q, qt, resp = _extract_dns_info_scapy(pkt)
+                    rec["dns_query"] = q
+                    rec["dns_query_type"] = qt
+                    rec["dns_response"] = resp
+                    rec["info"] = f"DNS Query: {q} ({qt})" if q else "DNS"
+                else:
+                    rec["info"] = (
+                        f"{tcp.sport}->{tcp.dport} [{rec['tcp_flags']}] "
+                        f"Seq={tcp.seq} Ack={tcp.ack} Len={len(pkt)}"
+                    )
+
+        # ── UDP ──────────────────────────────────────────────────────────────
+        elif UDP in pkt:
+            udp = pkt[UDP]
+            rec["source_port"] = udp.sport
+            rec["destination_port"] = udp.dport
+
+            if proto == "DNS":
+                q, qt, resp = _extract_dns_info_scapy(pkt)
+                rec["dns_query"] = q
+                rec["dns_query_type"] = qt
+                rec["dns_response"] = resp
+                is_response = bool(pkt[DNS].qr) if DNS in pkt else False
+                if is_response and resp:
+                    rec["info"] = f"DNS Response: {q} -> {resp}"
+                else:
+                    rec["info"] = f"DNS Query: {q} ({qt})" if q else "DNS Query"
+            elif proto == "QUIC":
+                rec["info"] = f"QUIC {udp.sport}->{udp.dport} Len={len(pkt)}"
+            else:
+                rec["info"] = f"UDP {udp.sport}->{udp.dport} Len={len(pkt)}"
+
+        # ── ICMP ─────────────────────────────────────────────────────────────
+        elif ICMP in pkt:
+            icmp = pkt[ICMP]
+            rec["icmp_type"] = icmp.type
+            rec["icmp_code"] = icmp.code
+            type_name = ICMP_TYPE_NAMES.get(icmp.type, f"Type {icmp.type}")
+            rec["info"] = f"ICMP {type_name} (type={icmp.type} code={icmp.code})"
+
+        else:
+            rec["info"] = f"IP {pkt[IP].src}->{pkt[IP].dst} Proto={pkt[IP].proto}"
+
+        return rec
+
+    except Exception as exc:
+        # Skip corrupt/unusual packets without crashing
+        print(f"  [!] Skipped packet #{idx}: {exc}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Protocol detection helpers (PyShark)
+# ---------------------------------------------------------------------------
+
+def _detect_protocol_pyshark(pkt) -> str:
+    """Classify a PyShark packet into a named protocol string."""
+    try:
+        layers = [layer.layer_name.upper() for layer in pkt.layers]
+
+        if "ICMP" in layers:
+            return "ICMP"
+        if "DNS" in layers:
+            return "DNS"
+
+        transport = getattr(pkt, "transport_layer", None)
+
+        if transport == "TCP":
+            try:
+                dport = int(pkt.tcp.dstport)
+                sport = int(pkt.tcp.srcport)
+            except Exception:
+                return "TCP"
+            if dport in HTTP_PORTS or sport in HTTP_PORTS:
+                return "HTTP"
+            if dport in HTTPS_PORTS or sport in HTTPS_PORTS:
+                if "TLS" in layers:
+                    return "HTTPS/TLS"
+                return "HTTPS/TLS"
+            return "TCP"
+
+        if transport == "UDP":
+            try:
+                dport = int(pkt.udp.dstport)
+                sport = int(pkt.udp.srcport)
+            except Exception:
+                return "UDP"
+            if dport in DNS_PORTS or sport in DNS_PORTS:
+                return "DNS"
+            if dport in QUIC_PORTS or sport in QUIC_PORTS:
+                return "QUIC"
+            return "UDP"
+
+    except Exception:
+        pass
+    return "OTHER"
+
+
+def _safe_attr(obj, *attrs, default=None):
+    """Safely traverse attributes on a PyShark layer object."""
+    cur = obj
+    for attr in attrs:
+        try:
+            cur = getattr(cur, attr)
+        except AttributeError:
+            return default
+    return cur if cur is not None else default
+
+
+def normalize_pyshark_packet(pkt, idx: int) -> Optional[Dict[str, Any]]:
+    """
+    Convert a single PyShark packet into a normalized packet record dict.
+    Returns None if no IP layer is found.
+    """
+    try:
+        # Require an IP layer
+        ip_layer = None
+        for layer in pkt.layers:
+            if layer.layer_name.lower() in ("ip", "ipv6"):
+                ip_layer = layer
+                break
+        if ip_layer is None:
+            return None
+
+        rec = empty_record()
+        rec["packet_number"] = idx
+        rec["source_ip"] = _safe_attr(ip_layer, "src", default="?")
+        rec["destination_ip"] = _safe_attr(ip_layer, "dst", default="?")
+
+        try:
+            rec["packet_length"] = int(pkt.length)
+        except Exception:
+            rec["packet_length"] = 0
+
+        # Timestamp
+        try:
+            rec["timestamp"] = str(pkt.sniff_time.strftime("%H:%M:%S.%f"))[:-3]
+        except Exception:
+            rec["timestamp"] = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+        proto = _detect_protocol_pyshark(pkt)
+        rec["protocol"] = proto
+
+        transport = getattr(pkt, "transport_layer", None)
+
+        # ── TCP ──────────────────────────────────────────────────────────────
+        if transport == "TCP":
+            try:
+                tcp = pkt.tcp
+                rec["source_port"] = int(tcp.srcport)
+                rec["destination_port"] = int(tcp.dstport)
+                rec["tcp_sequence"] = int(tcp.seq)
+                rec["tcp_acknowledgment"] = int(tcp.ack)
+
+                # Build flags string
+                flag_parts = []
+                for fname, fattr in [
+                    ("SYN", "flags_syn"), ("ACK", "flags_ack"), ("FIN", "flags_fin"),
+                    ("RST", "flags_reset"), ("PSH", "flags_push"), ("URG", "flags_urg")
+                ]:
+                    val = _safe_attr(tcp, fattr, default="0")
+                    if str(val) == "1":
+                        flag_parts.append(fname)
+                rec["tcp_flags"] = "-".join(flag_parts) if flag_parts else "NONE"
+            except Exception:
+                pass
+
+        # ── UDP ──────────────────────────────────────────────────────────────
+        if transport == "UDP":
+            try:
+                rec["source_port"] = int(pkt.udp.srcport)
+                rec["destination_port"] = int(pkt.udp.dstport)
+            except Exception:
+                pass
+
+        # ── DNS ──────────────────────────────────────────────────────────────
+        if proto == "DNS":
+            try:
+                dns = pkt.dns
+                qry = _safe_attr(dns, "qry_name", default=None)
+                if qry:
+                    rec["dns_query"] = str(qry).rstrip(".")
+                qtype = _safe_attr(dns, "qry_type", default=None)
+                if qtype:
+                    try:
+                        rec["dns_query_type"] = DNS_QTYPE_NAMES.get(int(qtype), str(qtype))
+                    except Exception:
+                        rec["dns_query_type"] = str(qtype)
+                resp_a = _safe_attr(dns, "a", default=None)
+                if resp_a:
+                    rec["dns_response"] = str(resp_a)
+                is_response = str(_safe_attr(dns, "flags_response", default="0")) == "1"
+                if is_response and rec["dns_response"]:
+                    rec["info"] = f"DNS Response: {rec['dns_query']} -> {rec['dns_response']}"
+                else:
+                    rec["info"] = (
+                        f"DNS Query: {rec['dns_query']} ({rec['dns_query_type']})"
+                        if rec["dns_query"] else "DNS"
+                    )
+            except Exception:
+                rec["info"] = "DNS"
+
+        # ── ICMP ─────────────────────────────────────────────────────────────
+        elif proto == "ICMP":
+            try:
+                icmp = pkt.icmp
+                icmp_type = int(_safe_attr(icmp, "type", default="-1"))
+                icmp_code = int(_safe_attr(icmp, "code", default="0"))
+                rec["icmp_type"] = icmp_type
+                rec["icmp_code"] = icmp_code
+                type_name = ICMP_TYPE_NAMES.get(icmp_type, f"Type {icmp_type}")
+                rec["info"] = f"ICMP {type_name} (type={icmp_type} code={icmp_code})"
+            except Exception:
+                rec["info"] = "ICMP"
+
+        # ── HTTP ─────────────────────────────────────────────────────────────
+        elif proto == "HTTP":
+            try:
+                http = pkt.http
+                rec["http_method"] = _safe_attr(http, "request_method", default=None)
+                rec["http_uri"] = _safe_attr(http, "request_uri", default=None)
+                rec["http_host"] = _safe_attr(http, "host", default=None)
+                parts = []
+                if rec["http_method"] and rec["http_uri"]:
+                    parts.append(f"{rec['http_method']} {rec['http_uri']}")
+                if rec["http_host"]:
+                    parts.append(f"Host: {rec['http_host']}")
+                rec["info"] = " | ".join(parts) if parts else "HTTP"
+            except Exception:
+                rec["info"] = "HTTP"
+
+        # ── HTTPS/TLS ────────────────────────────────────────────────────────
+        elif proto == "HTTPS/TLS":
+            try:
+                tls = pkt.tls
+                ver = _safe_attr(tls, "record_version", default=None)
+                if ver:
+                    tls_ver_map = {
+                        "0x0301": "TLS 1.0", "0x0302": "TLS 1.1",
+                        "0x0303": "TLS 1.2", "0x0304": "TLS 1.3",
+                    }
+                    rec["tls_version"] = tls_ver_map.get(str(ver).lower(), str(ver))
+                sni = _safe_attr(tls, "handshake_extensions_server_name", default=None)
+                rec["http_host"] = str(sni) if sni else None
+                info_parts = [f"TLS {rec['tls_version'] or ''}".strip()]
+                if rec["http_host"]:
+                    info_parts.append(f"SNI={rec['http_host']}")
+                port_info = f"{rec['source_port']}->{rec['destination_port']}" if rec["source_port"] else ""
+                if port_info:
+                    info_parts.append(port_info)
+                rec["info"] = " ".join(filter(None, info_parts))
+            except Exception:
+                rec["info"] = f"HTTPS/TLS {rec['source_port'] or ''}->{rec['destination_port'] or ''}"
+
+        # ── QUIC ─────────────────────────────────────────────────────────────
+        elif proto == "QUIC":
+            rec["info"] = (
+                f"QUIC {rec['source_port'] or ''}->{rec['destination_port'] or ''}"
+                f" Len={rec['packet_length']}"
+            )
+
+        # ── Generic TCP/UDP ──────────────────────────────────────────────────
+        elif transport == "TCP" and not rec["info"]:
+            rec["info"] = (
+                f"TCP {rec['source_port']}->{rec['destination_port']}"
+                f" [{rec['tcp_flags']}] Seq={rec['tcp_sequence']} Len={rec['packet_length']}"
+            )
+        elif transport == "UDP" and not rec["info"]:
+            rec["info"] = f"UDP {rec['source_port']}->{rec['destination_port']} Len={rec['packet_length']}"
+
+        return rec
+
+    except Exception as exc:
+        print(f"  [!] Skipped packet #{idx}: {exc}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# TCP Handshake Correlator
+# ---------------------------------------------------------------------------
+
+def correlate_tcp_handshakes(packets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Detect TCP three-way handshakes across the packet list.
+    Tracks per connection-tuple: (client_ip, client_port, server_ip, server_port)
+    and looks for SYN -> SYN-ACK -> ACK sequences.
+
+    Returns a list of handshake dicts.
+    """
+    # pending[conn_key] = {"syn_seq": int, "syn_ack_seq": int, "syn": True/False, ...}
+    pending: Dict[Tuple, Dict[str, Any]] = {}
+    completed: List[Dict[str, Any]] = []
+
+    for p in packets:
+        if p.get("protocol") not in ("TCP", "HTTPS/TLS", "HTTP"):
+            continue
+        flags = p.get("tcp_flags") or ""
+        src_ip = p.get("source_ip")
+        dst_ip = p.get("destination_ip")
+        sport = p.get("source_port")
+        dport = p.get("destination_port")
+        seq = p.get("tcp_sequence")
+        ack = p.get("tcp_acknowledgment")
+
+        if None in (src_ip, dst_ip, sport, dport):
+            continue
+
+        flag_set = set(flags.split("-"))
+
+        # Step 1: Pure SYN (no ACK)
+        if "SYN" in flag_set and "ACK" not in flag_set:
+            conn_key = (src_ip, sport, dst_ip, dport)
+            pending[conn_key] = {
+                "client": f"{src_ip}:{sport}",
+                "server": f"{dst_ip}:{dport}",
+                "syn": True,
+                "syn_ack": False,
+                "ack": False,
+                "complete": False,
+                "syn_seq": seq,
+                "packet_numbers": [p["packet_number"]],
+            }
+
+        # Step 2: SYN-ACK
+        elif "SYN" in flag_set and "ACK" in flag_set:
+            # The "server" side responds — key is reversed
+            conn_key = (dst_ip, dport, src_ip, sport)
+            if conn_key in pending and pending[conn_key]["syn"] and not pending[conn_key]["syn_ack"]:
+                pending[conn_key]["syn_ack"] = True
+                pending[conn_key]["syn_ack_seq"] = seq
+                pending[conn_key]["packet_numbers"].append(p["packet_number"])
+
+        # Step 3: Pure ACK (no SYN, no FIN, no RST)
+        elif "ACK" in flag_set and "SYN" not in flag_set and "FIN" not in flag_set and "RST" not in flag_set:
+            conn_key = (src_ip, sport, dst_ip, dport)
+            if conn_key in pending:
+                entry = pending[conn_key]
+                if entry["syn"] and entry["syn_ack"] and not entry["ack"]:
+                    # Verify the ACK number corresponds to SYN-ACK sequence
+                    syn_ack_seq = entry.get("syn_ack_seq")
+                    if syn_ack_seq is None or (ack is not None and ack == syn_ack_seq + 1):
+                        entry["ack"] = True
+                        entry["complete"] = True
+                        entry["packet_numbers"].append(p["packet_number"])
+                        completed.append({
+                            "client": entry["client"],
+                            "server": entry["server"],
+                            "syn": True,
+                            "syn_ack": True,
+                            "ack": True,
+                            "complete": True,
+                            "packet_numbers": entry["packet_numbers"],
+                        })
+                        del pending[conn_key]
+
+    # Add incomplete handshakes (SYN seen, SYN-ACK seen, but no ACK yet)
+    for key, entry in pending.items():
+        completed.append({
+            "client": entry["client"],
+            "server": entry["server"],
+            "syn": entry["syn"],
+            "syn_ack": entry["syn_ack"],
+            "ack": entry["ack"],
+            "complete": False,
+            "packet_numbers": entry.get("packet_numbers", []),
+        })
+
+    return completed
+
+
+# ---------------------------------------------------------------------------
+# Live Capture (Scapy)
+# ---------------------------------------------------------------------------
+
+def live_capture(
+    interface: str,
+    count: int = 100,
+    duration: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Capture live packets using Scapy's sniff().
+
+    Args:
+        interface: Network interface name (e.g. "Wi-Fi", "Ethernet", "eth0").
+        count:     Number of packets to capture (0 = unlimited, use duration).
+        duration:  Capture duration in seconds (overrides count if set).
+
+    Returns:
+        List of normalized packet record dicts.
+    """
+    if not SCAPY_AVAILABLE:
+        print("[!] Scapy is not installed. Cannot perform live capture.")
+        print("    Install with: pip install scapy")
+        sys.exit(1)
+
+    packets: List[Dict[str, Any]] = []
+    captured_count = [0]
+
+    def process_packet(pkt):
+        idx = captured_count[0] + 1
+        rec = normalize_scapy_packet(pkt, idx)
+        if rec is not None:
+            packets.append(rec)
+            captured_count[0] += 1
+            if captured_count[0] % 10 == 0:
+                print(f"  [*] Captured {captured_count[0]} packets...", flush=True)
+
+    print(f"\n[*] Starting live capture on interface: '{interface}'")
+    if duration:
+        print(f"    Duration: {duration}s")
+    else:
+        print(f"    Packet count: {count}")
+    print("    Press Ctrl+C to stop early.\n")
+
+    try:
+        sniff(
+            iface=interface,
+            prn=process_packet,
+            count=0 if duration else count,
+            timeout=duration,
+            store=False,
+        )
+    except PermissionError:
+        print("\n[!] Permission denied. Please run as Administrator (Windows) or root (Linux).")
+        sys.exit(1)
+    except OSError as exc:
+        print(f"\n[!] Cannot open interface '{interface}': {exc}")
+        print("    Available interfaces:")
+        try:
+            from scapy.arch import get_if_list
+            for iface in get_if_list():
+                print(f"      - {iface}")
+        except Exception:
+            pass
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\n[*] Capture interrupted by user.")
+
+    print(f"\n[+] Live capture complete. Total packets captured: {len(packets)}")
+    return packets
+
+
+# ---------------------------------------------------------------------------
+# PCAP / PCAPNG File Analysis
+# ---------------------------------------------------------------------------
+
+def analyze_pcap_file(filepath: str) -> List[Dict[str, Any]]:
+    """
+    Analyze a PCAP or PCAPNG file using PyShark (preferred) or Scapy (fallback).
+
+    Args:
+        filepath: Path to the .pcap or .pcapng file.
+
+    Returns:
+        List of normalized packet record dicts.
+    """
+    if not os.path.exists(filepath):
+        print(f"[!] PCAP file not found: {filepath}")
+        sys.exit(1)
+
+    print(f"[*] Analyzing PCAP/PCAPNG file: {filepath}")
+
+    packets: List[Dict[str, Any]] = []
+
+    # ── Try PyShark first (supports PCAPNG natively) ─────────────────────────
+    if PYSHARK_AVAILABLE:
+        print("[*] Using PyShark for file analysis...")
+        try:
+            cap = pyshark.FileCapture(
+                filepath,
+                keep_packets=False,
+                use_json=True,
+                include_raw=False,
+            )
+            idx = 1
+            for pkt in cap:
+                rec = normalize_pyshark_packet(pkt, idx)
+                if rec is not None:
+                    packets.append(rec)
+                    idx += 1
+                    if idx % 50 == 0:
+                        print(f"  [*] Processed {idx - 1} packets...", flush=True)
+            cap.close()
+            print(f"[+] PyShark analysis complete. Packets parsed: {len(packets)}")
+            return packets
+        except Exception as exc:
+            print(f"[!] PyShark failed ({exc}), falling back to Scapy...")
+
+    # ── Fallback: Scapy ───────────────────────────────────────────────────────
+    if SCAPY_AVAILABLE:
+        print("[*] Using Scapy for file analysis...")
+        try:
+            raw_packets = rdpcap(filepath)
+            for idx, pkt in enumerate(raw_packets, start=1):
+                rec = normalize_scapy_packet(pkt, idx)
+                if rec is not None:
+                    packets.append(rec)
+                if idx % 50 == 0:
+                    print(f"  [*] Processed {idx} packets...", flush=True)
+            print(f"[+] Scapy analysis complete. Packets parsed: {len(packets)}")
+            return packets
+        except Exception as exc:
+            print(f"[!] Scapy PCAP parsing failed: {exc}")
+            sys.exit(1)
+
+    print("[!] Neither PyShark nor Scapy is available. Cannot analyze PCAP file.")
+    print("    Install dependencies: pip install scapy pyshark")
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Output builders
+# ---------------------------------------------------------------------------
+
+def _build_protocol_counts(packets: List[Dict[str, Any]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for p in packets:
+        proto = p.get("protocol") or "OTHER"
+        counts[proto] = counts.get(proto, 0) + 1
+    return counts
+
+
+def _extract_dns_queries(packets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    seen: set = set()
+    queries: List[Dict[str, Any]] = []
+    for p in packets:
+        if p.get("dns_query"):
+            key = (p["dns_query"], p.get("dns_query_type"))
+            if key not in seen:
+                seen.add(key)
+            queries.append({
+                "domain": p["dns_query"],
+                "query_type": p.get("dns_query_type"),
+                "source_ip": p.get("source_ip"),
+                "destination_ip": p.get("destination_ip"),
+                "response": p.get("dns_response"),
+                "packet_number": p.get("packet_number"),
+                "timestamp": p.get("timestamp"),
+            })
+    return queries
+
+
+def build_output(
+    packets: List[Dict[str, Any]],
+    source_label: str = "live",
+) -> Dict[str, Any]:
+    """
+    Build the complete output dict from a list of normalized packet records.
+    Maintains backward compatibility with the Flask dashboard JSON format.
+    """
+    if not packets:
+        return {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "total_packets_captured": 0,
+            "protocol_summary": {},
+            "capture_summary": {
+                "total_packets": 0,
+                "unique_source_ips": 0,
+                "unique_destination_ips": 0,
+                "dns_query_count": 0,
+                "tcp_handshake_count": 0,
+                "icmp_count": 0,
+                "start_time": None,
+                "end_time": None,
+                "source": source_label,
+            },
+            "tcp_handshakes": [],
+            "dns_queries": [],
+            "packets": [],
+        }
+
+    proto_counts = _build_protocol_counts(packets)
+    handshakes = correlate_tcp_handshakes(packets)
+    dns_queries = _extract_dns_queries(packets)
+
+    src_ips = {p["source_ip"] for p in packets if p.get("source_ip")}
+    dst_ips = {p["destination_ip"] for p in packets if p.get("destination_ip")}
+    icmp_count = sum(1 for p in packets if p.get("protocol") == "ICMP")
+    timestamps = [p["timestamp"] for p in packets if p.get("timestamp")]
+
+    # ── Dashboard-compatible packet list ─────────────────────────────────────
+    # Map internal fields -> the field names expected by dashboard.js
+    dash_packets = []
+    for p in packets:
+        flags = p.get("tcp_flags") or ""
+        flag_set = set(flags.split("-")) if flags else set()
+
+        # Determine tcp_handshake string (for the dashboard "TCP Handshake / DNS" column)
+        tcp_handshake_str = None
+        if "SYN" in flag_set and "ACK" not in flag_set:
+            tcp_handshake_str = "SYN Sent (Step 1)"
+        elif "SYN" in flag_set and "ACK" in flag_set:
+            tcp_handshake_str = "SYN-ACK Received (Step 2)"
+        elif "ACK" in flag_set and "SYN" not in flag_set and "FIN" not in flag_set:
+            if p.get("protocol") in ("TCP", "HTTPS/TLS", "HTTP"):
+                tcp_handshake_str = "ACK (Step 3 / Data)"
+
+        # dns_lookup sub-object for dashboard
+        dns_lookup = None
+        if p.get("dns_query"):
+            dns_lookup = {
+                "query_name": p["dns_query"],
+                "query_type": p.get("dns_query_type"),
+                "response_ip": p.get("dns_response"),
+            }
+
+        dash_packets.append({
+            # Dashboard-expected fields
+            "id": p["packet_number"],
+            "timestamp": p["timestamp"],
+            "src_ip": p["source_ip"],
+            "dst_ip": p["destination_ip"],
+            "protocol": p["protocol"],
+            "length": p["packet_length"],
+            "details": p.get("info") or "",
+            "packet_type": p["protocol"],
+            "tcp_handshake": tcp_handshake_str,
+            "dns_lookup": dns_lookup,
+            # Extended fields
+            "source_port": p.get("source_port"),
+            "destination_port": p.get("destination_port"),
+            "tcp_flags": p.get("tcp_flags"),
+            "tcp_sequence": p.get("tcp_sequence"),
+            "tcp_acknowledgment": p.get("tcp_acknowledgment"),
+            "dns_query": p.get("dns_query"),
+            "dns_query_type": p.get("dns_query_type"),
+            "dns_response": p.get("dns_response"),
+            "icmp_type": p.get("icmp_type"),
+            "icmp_code": p.get("icmp_code"),
+            "http_host": p.get("http_host"),
+            "http_method": p.get("http_method"),
+            "http_uri": p.get("http_uri"),
+            "tls_version": p.get("tls_version"),
+        })
 
     return {
-        "timestamp": timestamp,
+        # Dashboard-required top-level keys
+        "timestamp": datetime.datetime.now().isoformat(),
         "total_packets_captured": len(packets),
-        "protocol_summary": protocol_summary,
-        "packets": packets
+        "protocol_summary": proto_counts,
+        # Extended summary
+        "capture_summary": {
+            "total_packets": len(packets),
+            "unique_source_ips": len(src_ips),
+            "unique_destination_ips": len(dst_ips),
+            "dns_query_count": len(dns_queries),
+            "tcp_handshake_count": sum(1 for h in handshakes if h["complete"]),
+            "icmp_count": icmp_count,
+            "start_time": timestamps[0] if timestamps else None,
+            "end_time": timestamps[-1] if timestamps else None,
+            "source": source_label,
+        },
+        "tcp_handshakes": handshakes,
+        "dns_queries": dns_queries,
+        "packets": dash_packets,
     }
 
 
-def analyze_pcap(pcap_filepath=None):
+# ---------------------------------------------------------------------------
+# Export helpers
+# ---------------------------------------------------------------------------
+
+def save_json(data: Dict[str, Any], path: str) -> None:
+    """Write analysis data to a JSON file."""
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=4, default=str)
+        print(f"[+] JSON saved -> {path}")
+    except IOError as exc:
+        print(f"[!] Failed to save JSON: {exc}")
+
+
+CSV_COLUMNS = [
+    "packet_number", "timestamp", "source_ip", "destination_ip",
+    "protocol", "packet_length", "source_port", "destination_port",
+    "tcp_flags", "dns_query", "dns_query_type", "dns_response",
+    "icmp_type", "icmp_code", "http_host", "http_method", "http_uri",
+    "tls_version", "info",
+]
+
+CSV_HEADERS = [
+    "Packet #", "Timestamp", "Source IP", "Destination IP",
+    "Protocol", "Length (B)", "Source Port", "Destination Port",
+    "TCP Flags", "DNS Query", "DNS Query Type", "DNS Response",
+    "ICMP Type", "ICMP Code", "HTTP Host", "HTTP Method", "HTTP URI",
+    "TLS Version", "Info",
+]
+
+
+def save_csv(packets: List[Dict[str, Any]], path: str) -> None:
     """
-    Parses PCAP packet capture file using Scapy if provided, 
-    otherwise populates dataset.
+    Write normalized packet records to a CSV file.
+    Accepts either internal packet records or dashboard-compatible dicts.
     """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    if pcap_filepath and os.path.exists(pcap_filepath) and SCAPY_AVAILABLE:
-        try:
-            print(f"[*] Reading PCAP file: {pcap_filepath}")
-            scapy_packets = rdpcap(pcap_filepath)
-            parsed_list = []
-            proto_counts = {}
+    # Detect whether we have raw records (source_ip) or dash records (src_ip)
+    # and normalize accordingly
+    def _get(p: dict, key: str, dash_key: str):
+        return p.get(key) if key in p else p.get(dash_key)
 
-            for idx, pkt in enumerate(scapy_packets):
-                if IP in pkt:
-                    src = pkt[IP].src
-                    dst = pkt[IP].dst
-                    length = len(pkt)
-                    proto = "IP"
-                    details = ""
-                    handshake = None
-                    dns_info = None
+    try:
+        with open(path, "w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh, quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(CSV_HEADERS)
+            for p in packets:
+                writer.writerow([
+                    _get(p, "packet_number", "id") or "",
+                    p.get("timestamp") or "",
+                    _get(p, "source_ip", "src_ip") or "",
+                    _get(p, "destination_ip", "dst_ip") or "",
+                    p.get("protocol") or "",
+                    _get(p, "packet_length", "length") or "",
+                    p.get("source_port") or "",
+                    p.get("destination_port") or "",
+                    p.get("tcp_flags") or "",
+                    p.get("dns_query") or (
+                        (p.get("dns_lookup") or {}).get("query_name") or ""
+                    ),
+                    p.get("dns_query_type") or (
+                        (p.get("dns_lookup") or {}).get("query_type") or ""
+                    ),
+                    p.get("dns_response") or (
+                        (p.get("dns_lookup") or {}).get("response_ip") or ""
+                    ),
+                    p.get("icmp_type") if p.get("icmp_type") is not None else "",
+                    p.get("icmp_code") if p.get("icmp_code") is not None else "",
+                    p.get("http_host") or "",
+                    p.get("http_method") or "",
+                    p.get("http_uri") or "",
+                    p.get("tls_version") or "",
+                    _get(p, "info", "details") or "",
+                ])
+        print(f"[+] CSV saved  -> {path}")
+    except IOError as exc:
+        print(f"[!] Failed to save CSV: {exc}")
 
-                    if TCP in pkt:
-                        proto = "TCP"
-                        flags = pkt[TCP].flags
-                        if flags == 'S':
-                            handshake = "SYN Sent (Step 1)"
-                        elif flags == 'SA':
-                            handshake = "SYN-ACK Received (Step 2)"
-                        elif flags == 'A':
-                            handshake = "ACK Sent (Step 3)"
 
-                        if pkt[TCP].dport == 80 or pkt[TCP].sport == 80:
-                            proto = "HTTP"
-                        elif pkt[TCP].dport == 443 or pkt[TCP].sport == 443:
-                            proto = "HTTPS"
+# ---------------------------------------------------------------------------
+# Statistics printer
+# ---------------------------------------------------------------------------
 
-                        details = f"{pkt[TCP].sport} -> {pkt[TCP].dport} [{flags}] Seq={pkt[TCP].seq}"
+def print_statistics(data: Dict[str, Any]) -> None:
+    """Print a summary of the capture results to stdout."""
+    summary = data.get("capture_summary", {})
+    handshakes = data.get("tcp_handshakes", [])
+    dns_queries = data.get("dns_queries", [])
+    proto_counts = data.get("protocol_summary", {})
 
-                    elif UDP in pkt:
-                        proto = "UDP"
-                        if DNS in pkt:
-                            proto = "DNS"
-                            if pkt.haslayer(DNSQR):
-                                qname = pkt[DNSQR].qname.decode('utf-8', errors='ignore')
-                                dns_info = {"query_name": qname, "query_type": "A", "response_ip": None}
-                                details = f"DNS Query for {qname}"
+    print("\n" + "=" * 60)
+    print("  CAPTURE SUMMARY")
+    print("=" * 60)
+    print(f"  Total packets analyzed : {data.get('total_packets_captured', 0)}")
+    print(f"  Unique source IPs      : {summary.get('unique_source_ips', 0)}")
+    print(f"  Unique destination IPs : {summary.get('unique_destination_ips', 0)}")
+    print(f"  Capture start          : {summary.get('start_time', 'N/A')}")
+    print(f"  Capture end            : {summary.get('end_time', 'N/A')}")
 
-                        details = details or f"UDP {pkt[UDP].sport} -> {pkt[UDP].dport}"
+    print("\n  PROTOCOL BREAKDOWN")
+    print("  " + "-" * 40)
+    for proto, cnt in sorted(proto_counts.items(), key=lambda x: -x[1]):
+        print(f"  {proto:<20} {cnt:>6}")
 
-                    elif ICMP in pkt:
-                        proto = "ICMP"
-                        details = f"ICMP Type {pkt[ICMP].type} Code {pkt[ICMP].code}"
+    print(f"\n  DNS Queries            : {summary.get('dns_query_count', 0)}")
+    if dns_queries:
+        for q in dns_queries[:5]:
+            print(f"    - {q['domain']} ({q['query_type']}) "
+                  f"{q['source_ip']} -> {q['destination_ip']}")
+        if len(dns_queries) > 5:
+            print(f"    ... and {len(dns_queries) - 5} more")
 
-                    proto_counts[proto] = proto_counts.get(proto, 0) + 1
-                    parsed_list.append({
-                        "id": idx + 1,
-                        "timestamp": datetime.datetime.fromtimestamp(float(pkt.time)).strftime("%H:%M:%S.%f")[:-3],
-                        "src_ip": src,
-                        "dst_ip": dst,
-                        "protocol": proto,
-                        "length": length,
-                        "details": details,
-                        "packet_type": proto,
-                        "tcp_handshake": handshake,
-                        "dns_lookup": dns_info
-                    })
+    complete_hs = [h for h in handshakes if h["complete"]]
+    print(f"\n  TCP Handshakes (complete) : {len(complete_hs)}")
+    for hs in complete_hs[:3]:
+        print(f"    Client {hs['client']} -> Server {hs['server']}")
+        print(f"      SYN [OK]  SYN-ACK [OK]  ACK [OK]  Complete [OK]")
+    if len(complete_hs) > 3:
+        print(f"    ... and {len(complete_hs) - 3} more")
 
-            if parsed_list:
-                result = {
-                    "timestamp": datetime.datetime.now().isoformat(),
-                    "total_packets_captured": len(parsed_list),
-                    "protocol_summary": proto_counts,
-                    "packets": parsed_list
-                }
-                # Save JSON
-                with open(os.path.join(script_dir, "packet_analysis.json"), "w") as f:
-                    json.dump(result, f, indent=4)
-                return result
-        except Exception as e:
-            print(f"[!] Error parsing PCAP file: {e}")
+    print(f"\n  ICMP packets           : {summary.get('icmp_count', 0)}")
+    print("=" * 60 + "\n")
 
-    # Fallback/Default generate
-    print("[+] Generating Phase 2 packet analysis dataset.")
-    res = generate_sample_packets()
 
-    json_path = os.path.join(script_dir, "packet_analysis.json")
-    with open(json_path, "w") as f:
-        json.dump(res, f, indent=4)
-    print(f"[+] Saved JSON packet analysis to: {json_path}")
+# ---------------------------------------------------------------------------
+# Flask-compatible wrapper (keeps existing app.py import working)
+# ---------------------------------------------------------------------------
 
-    csv_path = os.path.join(script_dir, "packet_analysis.csv")
-    with open(csv_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["ID", "Timestamp", "Source IP", "Destination IP", "Protocol", "Length", "Details", "TCP Handshake", "DNS Query"])
-        for p in res["packets"]:
-            writer.writerow([
-                p["id"],
-                p["timestamp"],
-                p["src_ip"],
-                p["dst_ip"],
-                p["protocol"],
-                p["length"],
-                p["details"],
-                p["tcp_handshake"] or "N/A",
-                p["dns_lookup"]["query_name"] if p["dns_lookup"] else "N/A"
-            ])
-    print(f"[+] Saved CSV packet analysis to: {csv_path}")
+def analyze_pcap(pcap_filepath: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Flask-compatible entry point called by app.py.
 
-    return res
+    If a valid PCAP filepath is provided, analyzes that file.
+    Otherwise, attempts a short live capture on the default interface,
+    and if that fails (permission / no interface), returns a minimal
+    empty result rather than crashing the Flask server.
+
+    Always saves packet_analysis.json and packet_analysis.csv.
+    """
+    packets: List[Dict[str, Any]] = []
+    source_label = "unknown"
+
+    if pcap_filepath and os.path.exists(pcap_filepath):
+        print(f"[Module 2] Analyzing PCAP file: {pcap_filepath}")
+        packets = analyze_pcap_file(pcap_filepath)
+        source_label = f"pcap:{os.path.basename(pcap_filepath)}"
+    else:
+        # Try a short live capture; swallow errors so Flask doesn't crash
+        if SCAPY_AVAILABLE:
+            try:
+                import platform
+                # Determine a sensible default interface
+                if platform.system() == "Windows":
+                    default_iface = "Wi-Fi"
+                else:
+                    default_iface = "eth0"
+                print(f"[Module 2] Attempting brief live capture on '{default_iface}'...")
+                packets = live_capture(interface=default_iface, count=50)
+                source_label = f"live:{default_iface}"
+            except SystemExit:
+                pass  # Permission denied or bad interface — return empty
+            except Exception as exc:
+                print(f"[Module 2] Live capture failed: {exc}")
+        else:
+            print("[Module 2] Scapy not available. No data to capture.")
+
+    data = build_output(packets, source_label=source_label)
+    save_json(data, DEFAULT_JSON_PATH)
+    save_csv(data["packets"], DEFAULT_CSV_PATH)
+    return data
+
+
+# ---------------------------------------------------------------------------
+# CLI Entry Point
+# ---------------------------------------------------------------------------
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="sniffer.py",
+        description=(
+            "Module 2: Packet Capture & Protocol Analysis\n"
+            "Captures live traffic or analyzes PCAP/PCAPNG files.\n\n"
+            "Examples:\n"
+            "  python sniffer.py --interface \"Wi-Fi\" --count 100\n"
+            "  python sniffer.py --interface \"Ethernet\" --duration 30\n"
+            "  python sniffer.py --pcap capture.pcapng\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--interface", "-i",
+        metavar="IFACE",
+        help='Network interface for live capture (e.g. "Wi-Fi", "Ethernet", "eth0").',
+    )
+    mode.add_argument(
+        "--pcap", "-p",
+        metavar="FILE",
+        help="Path to a .pcap or .pcapng file for offline analysis.",
+    )
+
+    parser.add_argument(
+        "--count", "-c",
+        type=int,
+        default=100,
+        metavar="N",
+        help="Number of packets to capture in live mode (default: 100).",
+    )
+    parser.add_argument(
+        "--duration", "-d",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Capture duration in seconds (overrides --count when set).",
+    )
+    parser.add_argument(
+        "--json-output", "-j",
+        metavar="PATH",
+        default=DEFAULT_JSON_PATH,
+        help=f"Output JSON file path (default: {DEFAULT_JSON_PATH}).",
+    )
+    parser.add_argument(
+        "--csv-output", "-C",
+        metavar="PATH",
+        default=DEFAULT_CSV_PATH,
+        help=f"Output CSV file path (default: {DEFAULT_CSV_PATH}).",
+    )
+    parser.add_argument(
+        "--list-interfaces", "-l",
+        action="store_true",
+        help="List available network interfaces and exit.",
+    )
+    return parser
+
+
+def main() -> None:
+    parser = build_arg_parser()
+    args = parser.parse_args()
+
+    # ── List interfaces ───────────────────────────────────────────────────────
+    if args.list_interfaces:
+        if SCAPY_AVAILABLE:
+            try:
+                from scapy.arch import get_if_list
+                print("[*] Available network interfaces:")
+                for iface in get_if_list():
+                    print(f"    - {iface}")
+            except Exception:
+                print("[!] Could not enumerate interfaces.")
+        else:
+            print("[!] Scapy not installed. Cannot list interfaces.")
+        return
+
+    # ── Dependency check ─────────────────────────────────────────────────────
+    if not SCAPY_AVAILABLE and not PYSHARK_AVAILABLE:
+        print("[!] Neither Scapy nor PyShark is installed.")
+        print("    Install with: pip install scapy pyshark")
+        sys.exit(1)
+
+    packets: List[Dict[str, Any]] = []
+    source_label = "cli"
+
+    # ── PCAP file mode ───────────────────────────────────────────────────────
+    if args.pcap:
+        packets = analyze_pcap_file(args.pcap)
+        source_label = f"pcap:{os.path.basename(args.pcap)}"
+
+    # ── Live capture mode ─────────────────────────────────────────────────────
+    elif args.interface:
+        packets = live_capture(
+            interface=args.interface,
+            count=args.count,
+            duration=args.duration,
+        )
+        source_label = f"live:{args.interface}"
+
+    else:
+        parser.print_help()
+        print("\n[!] Please specify --interface or --pcap.")
+        sys.exit(1)
+
+    if not packets:
+        print("[!] No packets were captured or parsed. Nothing to export.")
+        sys.exit(0)
+
+    # ── Build output & save ───────────────────────────────────────────────────
+    data = build_output(packets, source_label=source_label)
+    save_json(data, args.json_output)
+    save_csv(data["packets"], args.csv_output)
+
+    # ── Print statistics ──────────────────────────────────────────────────────
+    print_statistics(data)
 
 
 if __name__ == "__main__":
-    analyze_pcap()
+    main()
+
+
+# ---------------------------------------------------------------------------
+# Real-Time Capture Engine (Flask-SocketIO integration)
+# ---------------------------------------------------------------------------
+
+import threading  # re-import at module level for clarity (already available)
+import datetime as _dt
+
+MAX_UI_PACKETS = 500  # Maximum rows kept in the browser-facing recent_packets list
+
+
+def get_interfaces() -> List[str]:
+    """
+    Return a list of available network interface names.
+    Uses Scapy's ifaces if available; falls back to a sensible default.
+    """
+    if not SCAPY_AVAILABLE:
+        return ["Wi-Fi", "Ethernet"]
+    try:
+        from scapy.interfaces import IFACES
+        # Return friendly names where available
+        names: List[str] = []
+        for iface in IFACES.values():
+            name = getattr(iface, "name", None) or getattr(iface, "description", None)
+            if name:
+                names.append(name)
+        # Deduplicate while preserving order
+        seen: set = set()
+        unique: List[str] = []
+        for n in names:
+            if n not in seen:
+                seen.add(n)
+                unique.append(n)
+        return unique if unique else ["Wi-Fi", "Ethernet"]
+    except Exception:
+        try:
+            from scapy.arch import get_if_list
+            return get_if_list()
+        except Exception:
+            return ["Wi-Fi", "Ethernet"]
+
+
+def _empty_capture_state() -> Dict[str, Any]:
+    """Return a fresh, zeroed capture state dict."""
+    return {
+        "running": False,
+        "status": "Idle",          # "Idle" | "Capturing" | "Stopped" | "Error"
+        "start_time": None,
+        "stop_time": None,
+        "packet_count": 0,         # Total packets seen (never capped)
+        "protocol_counts": {
+            "TCP": 0, "UDP": 0, "DNS": 0,
+            "HTTPS/TLS": 0, "ICMP": 0, "HTTP": 0, "QUIC": 0, "OTHER": 0,
+        },
+        "tcp_handshake_pending": {},   # key -> pending handshake dict (internal)
+        "tcp_handshakes": [],          # completed + incomplete list for UI
+        "dns_queries": [],             # list of DNS query dicts for UI
+        "dns_seen": set(),             # (domain, qtype) set to detect unique queries
+        "icmp_stats": {"echo_request": 0, "echo_reply": 0, "other": 0},
+        "recent_packets": [],          # capped at MAX_UI_PACKETS for UI
+        "all_packets": [],             # full list for export
+        "error": None,
+    }
+
+
+def _update_handshake_live(rec: Dict[str, Any], state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Incrementally update the TCP handshake tracker in state using a single packet record.
+    Returns a handshake event dict if something changed (new, updated, or completed),
+    or None if nothing notable happened.
+
+    The returned dict includes a 'event' key: "new_syn" | "syn_ack" | "complete"
+    so the caller knows what to emit to the browser.
+    """
+    proto = rec.get("protocol")
+    if proto not in ("TCP", "HTTPS/TLS", "HTTP"):
+        return None
+
+    flags = rec.get("tcp_flags") or ""
+    flag_set = set(flags.split("-")) if flags else set()
+    src_ip = rec.get("source_ip")
+    dst_ip = rec.get("destination_ip")
+    sport = rec.get("source_port")
+    dport = rec.get("destination_port")
+    seq = rec.get("tcp_sequence")
+    ack = rec.get("tcp_acknowledgment")
+
+    if None in (src_ip, dst_ip, sport, dport):
+        return None
+
+    pending = state["tcp_handshake_pending"]
+
+    # ── Step 1: Pure SYN ────────────────────────────────────────────────────
+    if "SYN" in flag_set and "ACK" not in flag_set:
+        conn_key = (src_ip, sport, dst_ip, dport)
+        entry = {
+            "client": src_ip,
+            "client_port": sport,
+            "server": dst_ip,
+            "server_port": dport,
+            "port": dport,
+            "syn": True,
+            "syn_ack": False,
+            "ack": False,
+            "complete": False,
+            "status": "SYN",
+            "syn_seq": seq,
+            "packet_numbers": [rec.get("packet_number")],
+        }
+        pending[conn_key] = entry
+        # Add or update in tcp_handshakes list
+        _upsert_handshake(state, conn_key, entry)
+        return {"event": "new_syn", "key": str(conn_key), "data": _hs_for_ui(entry)}
+
+    # ── Step 2: SYN-ACK ─────────────────────────────────────────────────────
+    elif "SYN" in flag_set and "ACK" in flag_set:
+        conn_key = (dst_ip, dport, src_ip, sport)
+        if conn_key in pending:
+            entry = pending[conn_key]
+            if entry["syn"] and not entry["syn_ack"]:
+                entry["syn_ack"] = True
+                entry["syn_ack_seq"] = seq
+                entry["status"] = "SYN-ACK"
+                entry["packet_numbers"].append(rec.get("packet_number"))
+                _upsert_handshake(state, conn_key, entry)
+                return {"event": "syn_ack", "key": str(conn_key), "data": _hs_for_ui(entry)}
+
+    # ── Step 3: Pure ACK (no SYN/FIN/RST) ──────────────────────────────────
+    elif "ACK" in flag_set and "SYN" not in flag_set and "FIN" not in flag_set and "RST" not in flag_set:
+        conn_key = (src_ip, sport, dst_ip, dport)
+        if conn_key in pending:
+            entry = pending[conn_key]
+            if entry["syn"] and entry["syn_ack"] and not entry["ack"]:
+                syn_ack_seq = entry.get("syn_ack_seq")
+                if syn_ack_seq is None or (ack is not None and ack == syn_ack_seq + 1):
+                    entry["ack"] = True
+                    entry["complete"] = True
+                    entry["status"] = "COMPLETE"
+                    entry["packet_numbers"].append(rec.get("packet_number"))
+                    _upsert_handshake(state, conn_key, entry)
+                    del pending[conn_key]
+                    return {"event": "complete", "key": str(conn_key), "data": _hs_for_ui(entry)}
+
+    return None
+
+
+def _hs_for_ui(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert internal handshake entry to a UI-friendly dict."""
+    return {
+        "client": entry["client"],
+        "server": entry["server"],
+        "port": entry["port"],
+        "status": entry["status"],
+        "syn": entry["syn"],
+        "syn_ack": entry["syn_ack"],
+        "ack": entry["ack"],
+        "complete": entry["complete"],
+    }
+
+
+def _upsert_handshake(state: Dict[str, Any], conn_key: tuple, entry: Dict[str, Any]) -> None:
+    """Insert or update a handshake record in the tcp_handshakes list."""
+    key_str = str(conn_key)
+    for i, hs in enumerate(state["tcp_handshakes"]):
+        if hs.get("_key") == key_str:
+            state["tcp_handshakes"][i] = {"_key": key_str, **_hs_for_ui(entry)}
+            return
+    state["tcp_handshakes"].append({"_key": key_str, **_hs_for_ui(entry)})
+
+
+class CaptureEngine:
+    """
+    Thread-safe real-time packet capture engine for Flask-SocketIO integration.
+
+    Usage:
+        engine = CaptureEngine()
+        engine.start("Wi-Fi", socketio_instance)
+        ...
+        engine.stop()
+        data = engine.export_data()  # returns JSON-ready dict
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._state: Dict[str, Any] = _empty_capture_state()
+        self._socketio = None  # set on start()
+
+    # ── Public API ───────────────────────────────────────────────────────────
+
+    def start(self, interface: str, socketio_instance) -> Dict[str, Any]:
+        """
+        Start real-time capture on the given interface.
+        Returns {"ok": True} or {"ok": False, "error": "..."}.
+        """
+        with self._lock:
+            if self._state["running"]:
+                return {"ok": False, "error": "Capture already running."}
+            if not SCAPY_AVAILABLE:
+                return {"ok": False, "error": "Scapy is not installed. Run: pip install scapy"}
+
+        self._socketio = socketio_instance
+        self._stop_event.clear()
+
+        self._thread = threading.Thread(
+            target=self._capture_worker,
+            args=(interface,),
+            daemon=True,
+            name="CaptureEngine-worker",
+        )
+        self._thread.start()
+        return {"ok": True}
+
+    def stop(self) -> Dict[str, Any]:
+        """Signal the capture thread to stop. Returns current summary."""
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5.0)
+        with self._lock:
+            self._state["running"] = False
+            if self._state["status"] == "Capturing":
+                self._state["status"] = "Stopped"
+                self._state["stop_time"] = _dt.datetime.now().strftime("%H:%M:%S")
+        return {"ok": True, "packet_count": self._state["packet_count"]}
+
+    def clear(self) -> None:
+        """Reset all capture state (does not stop a running capture)."""
+        with self._lock:
+            was_running = self._state["running"]
+            self._state = _empty_capture_state()
+            if was_running:
+                self._state["running"] = True
+                self._state["status"] = "Capturing"
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return a lightweight status snapshot (no packet list)."""
+        with self._lock:
+            s = self._state
+            return {
+                "running": s["running"],
+                "status": s["status"],
+                "packet_count": s["packet_count"],
+                "protocol_counts": dict(s["protocol_counts"]),
+                "dns_count": len(s["dns_queries"]),
+                "handshake_count": sum(1 for h in s["tcp_handshakes"] if h.get("complete")),
+                "icmp_stats": dict(s["icmp_stats"]),
+                "start_time": s["start_time"],
+                "stop_time": s.get("stop_time"),
+                "error": s["error"],
+            }
+
+    def get_recent_packets(self) -> List[Dict[str, Any]]:
+        """Return a copy of the recent packet list (capped at MAX_UI_PACKETS)."""
+        with self._lock:
+            return list(self._state["recent_packets"])
+
+    def export_data(self) -> Dict[str, Any]:
+        """
+        Build a complete output dict from in-memory state (same structure as
+        build_output()) and save JSON + CSV files.
+        Returns the output dict.
+        """
+        with self._lock:
+            packets_snapshot = list(self._state["all_packets"])
+            state_snapshot = {
+                "protocol_counts": dict(self._state["protocol_counts"]),
+                "tcp_handshakes": [
+                    {k: v for k, v in hs.items() if k != "_key"}
+                    for hs in self._state["tcp_handshakes"]
+                ],
+                "dns_queries": list(self._state["dns_queries"]),
+                "icmp_stats": dict(self._state["icmp_stats"]),
+                "start_time": self._state["start_time"],
+                "stop_time": self._state.get("stop_time"),
+                "packet_count": self._state["packet_count"],
+            }
+
+        # Build dashboard-compatible output using existing build_output()
+        data = build_output(packets_snapshot, source_label="live:realtime")
+
+        # Overlay real handshake/dns data from incremental tracker
+        data["tcp_handshakes"] = state_snapshot["tcp_handshakes"]
+        data["dns_queries"] = state_snapshot["dns_queries"]
+        data["capture_summary"]["icmp_count"] = (
+            state_snapshot["icmp_stats"]["echo_request"]
+            + state_snapshot["icmp_stats"]["echo_reply"]
+            + state_snapshot["icmp_stats"]["other"]
+        )
+        data["capture_summary"]["start_time"] = state_snapshot["start_time"]
+        data["capture_summary"]["end_time"] = state_snapshot["stop_time"]
+
+        # Save to disk
+        save_json(data, DEFAULT_JSON_PATH)
+        save_csv(data["packets"], DEFAULT_CSV_PATH)
+        return data
+
+    # ── Private: capture worker ──────────────────────────────────────────────
+
+    def _capture_worker(self, interface: str) -> None:
+        """Runs in a background thread. Opens Scapy sniff() and processes packets."""
+        # Update status
+        with self._lock:
+            self._state["running"] = True
+            self._state["status"] = "Capturing"
+            self._state["start_time"] = _dt.datetime.now().strftime("%H:%M:%S")
+            self._state["error"] = None
+
+        self._emit("m2_status", {
+            "status": "Capturing",
+            "interface": interface,
+            "start_time": self._state["start_time"],
+        })
+
+        packet_idx = [0]  # mutable counter for closure
+
+        def _on_packet(pkt):
+            if self._stop_event.is_set():
+                return
+
+            packet_idx[0] += 1
+            idx = packet_idx[0]
+
+            rec = normalize_scapy_packet(pkt, idx)
+            if rec is None:
+                return  # Non-IP packet — skip
+
+            # ── Update shared state (Lock) ───────────────────────────────────
+            with self._lock:
+                self._state["packet_count"] = idx
+
+                # Protocol counters
+                proto = rec.get("protocol") or "OTHER"
+                proto_key = proto if proto in self._state["protocol_counts"] else "OTHER"
+                self._state["protocol_counts"][proto_key] = (
+                    self._state["protocol_counts"].get(proto_key, 0) + 1
+                )
+
+                # ICMP stats
+                if proto == "ICMP":
+                    icmp_t = rec.get("icmp_type")
+                    if icmp_t == 8:
+                        self._state["icmp_stats"]["echo_request"] += 1
+                    elif icmp_t == 0:
+                        self._state["icmp_stats"]["echo_reply"] += 1
+                    else:
+                        self._state["icmp_stats"]["other"] += 1
+
+                # DNS queries (unique per domain+type)
+                if rec.get("dns_query"):
+                    key = (rec["dns_query"], rec.get("dns_query_type"))
+                    if key not in self._state["dns_seen"]:
+                        self._state["dns_seen"].add(key)
+                    dns_entry = {
+                        "timestamp": rec.get("timestamp", ""),
+                        "domain": rec["dns_query"],
+                        "query_type": rec.get("dns_query_type", "A"),
+                        "source_ip": rec.get("source_ip", ""),
+                        "dns_server": rec.get("destination_ip", ""),
+                        "response": rec.get("dns_response"),
+                    }
+                    self._state["dns_queries"].append(dns_entry)
+
+                # TCP handshake (incremental)
+                hs_event = _update_handshake_live(rec, self._state)
+
+                # Recent packets (capped)
+                pkt_ui = self._build_ui_packet(rec)
+                if len(self._state["recent_packets"]) >= MAX_UI_PACKETS:
+                    self._state["recent_packets"].pop(0)
+                self._state["recent_packets"].append(pkt_ui)
+
+                # Full list for export
+                self._state["all_packets"].append(rec)
+
+                # Snapshot for emit (outside lock)
+                proto_counts_snap = dict(self._state["protocol_counts"])
+                icmp_snap = dict(self._state["icmp_stats"])
+                total_snap = self._state["packet_count"]
+
+            # ── Emit to browser (outside lock) ──────────────────────────────
+            self._emit("m2_packet", pkt_ui)
+            self._emit("m2_stats", {
+                "total": total_snap,
+                "protocol_counts": proto_counts_snap,
+                "icmp_stats": icmp_snap,
+            })
+
+            if rec.get("dns_query"):
+                self._emit("m2_dns", dns_entry)
+
+            if hs_event:
+                self._emit("m2_handshake", hs_event)
+
+        # ── Launch Scapy sniff ───────────────────────────────────────────────
+        try:
+            sniff(
+                iface=interface,
+                prn=_on_packet,
+                store=False,
+                stop_filter=lambda p: self._stop_event.is_set(),
+            )
+        except PermissionError:
+            err = (
+                "Permission denied. Run the application as Administrator (Windows) "
+                "or root (Linux/macOS) to capture packets."
+            )
+            self._set_error(err)
+        except OSError as exc:
+            err = f"Cannot open interface '{interface}': {exc}"
+            self._set_error(err)
+        except Exception as exc:
+            err = f"Capture error: {exc}"
+            self._set_error(err)
+        finally:
+            with self._lock:
+                self._state["running"] = False
+                if self._state["status"] == "Capturing":
+                    self._state["status"] = "Stopped"
+                    self._state["stop_time"] = _dt.datetime.now().strftime("%H:%M:%S")
+            self._emit("m2_status", {
+                "status": self._state["status"],
+                "packet_count": self._state["packet_count"],
+                "error": self._state["error"],
+            })
+
+    def _set_error(self, message: str) -> None:
+        with self._lock:
+            self._state["error"] = message
+            self._state["status"] = "Error"
+            self._state["running"] = False
+        print(f"[CaptureEngine] ERROR: {message}")
+
+    def _emit(self, event: str, data: Any) -> None:
+        """Thread-safe SocketIO emit (ignores errors to avoid crashing the capture thread)."""
+        if self._socketio is None:
+            return
+        try:
+            self._socketio.emit(event, data, namespace="/")
+        except Exception as exc:
+            print(f"[CaptureEngine] SocketIO emit error ({event}): {exc}")
+
+    @staticmethod
+    def _build_ui_packet(rec: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert an internal packet record to the UI wire format."""
+        flags = rec.get("tcp_flags") or ""
+        flag_set = set(flags.split("-")) if flags else set()
+
+        tcp_handshake_str = None
+        if "SYN" in flag_set and "ACK" not in flag_set:
+            tcp_handshake_str = "SYN"
+        elif "SYN" in flag_set and "ACK" in flag_set:
+            tcp_handshake_str = "SYN-ACK"
+        elif "ACK" in flag_set and "SYN" not in flag_set and "FIN" not in flag_set:
+            if rec.get("protocol") in ("TCP", "HTTPS/TLS", "HTTP"):
+                tcp_handshake_str = "ACK"
+
+        dns_lookup = None
+        if rec.get("dns_query"):
+            dns_lookup = {
+                "query_name": rec["dns_query"],
+                "query_type": rec.get("dns_query_type"),
+                "response_ip": rec.get("dns_response"),
+            }
+
+        return {
+            "id": rec.get("packet_number"),
+            "timestamp": rec.get("timestamp", ""),
+            "src_ip": rec.get("source_ip", ""),
+            "dst_ip": rec.get("destination_ip", ""),
+            "protocol": rec.get("protocol", ""),
+            "length": rec.get("packet_length", 0),
+            "source_port": rec.get("source_port"),
+            "destination_port": rec.get("destination_port"),
+            "tcp_flags": flags,
+            "tcp_handshake": tcp_handshake_str,
+            "dns_lookup": dns_lookup,
+            "dns_query": rec.get("dns_query"),
+            "icmp_type": rec.get("icmp_type"),
+            "icmp_code": rec.get("icmp_code"),
+            "tls_version": rec.get("tls_version"),
+            "http_host": rec.get("http_host"),
+            "http_method": rec.get("http_method"),
+            "details": rec.get("info", ""),
+        }
+
+
+# Module-level singleton — imported by app.py
+capture_engine = CaptureEngine()
