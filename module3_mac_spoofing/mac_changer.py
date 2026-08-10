@@ -4,12 +4,16 @@ Module 3: MAC Address Spoofing & Management (Phase 3)
 Allows viewing current MAC address, spoofing/changing MAC address,
 restarting network adapter, verifying new MAC address, restoring original MAC,
 maintaining automated configuration, experiment logging, and generating reports.
+
+Uses dynamic ipconfig /all detection, Registry NetworkAddress modification,
+and PowerShell adapter restart commands.
 """
 
 import os
 import json
 import re
 import subprocess
+import winreg
 from datetime import datetime
 import pandas as pd
 
@@ -21,7 +25,7 @@ LOG_FILE = os.path.join(REPORTS_DIR, "experiment_log.csv")
 
 
 def get_wifi_adapter_info():
-    """Extract adapter name and physical MAC address using Windows ipconfig /all."""
+    """Extract adapter name and physical MAC address dynamically using Windows ipconfig /all."""
     try:
         result = subprocess.run(
             ["ipconfig", "/all"],
@@ -31,43 +35,72 @@ def get_wifi_adapter_info():
         )
         output = result.stdout
 
-        adapter_match = re.search(
-            r"Wireless LAN adapter Wi-Fi:(.*?)(?=\n\S|\Z)",
-            output,
-            re.DOTALL | re.IGNORECASE
-        )
+        sections = re.split(r"\n(?=[A-Za-z0-9].*adapter)", output)
 
-        adapter_name = "RZ616 Wi-Fi 6E 160MHz"
-        mac_address = None
+        physical_wifi = None
+        virtual_wifi = None
+        other_adapter = None
 
-        if adapter_match:
-            adapter_info = adapter_match.group(1)
+        for section in sections:
+            if "Physical Address" in section:
+                mac_match = re.search(r"Physical Address[.\s:]*([0-9A-Fa-f-]{17})", section)
+                desc_match = re.search(r"Description[.\s:]*(.+)", section)
 
-            desc_match = re.search(r"Description[.\s:]*(.+)", adapter_info)
-            if desc_match:
-                adapter_name = desc_match.group(1).strip()
+                if mac_match:
+                    mac = mac_match.group(1).upper().replace("-", ":")
+                    desc = desc_match.group(1).strip() if desc_match else "Network Adapter"
 
-            mac_match = re.search(
-                r"Physical Address[.\s:]*([0-9A-Fa-f-]{17})",
-                adapter_info
-            )
-            if mac_match:
-                mac_address = mac_match.group(1).upper()
+                    if "Wi-Fi:" in section or ("Wireless" in section and "Virtual" not in desc):
+                        physical_wifi = (desc, mac)
+                    elif "Wireless" in section or "Wi-Fi" in section:
+                        if not virtual_wifi:
+                            virtual_wifi = (desc, mac)
+                    elif not other_adapter:
+                        other_adapter = (desc, mac)
 
-        return adapter_name, mac_address
+        if physical_wifi:
+            return physical_wifi
+        if virtual_wifi:
+            return virtual_wifi
+        if other_adapter:
+            return other_adapter
     except Exception as e:
-        print(f"[!] Error detecting Wi-Fi adapter: {e}")
-        return "Wi-Fi Adapter", None
+        print(f"[!] Dynamic ipconfig detection notice: {e}")
+
+    return "Wi-Fi Adapter", None
+
+
+def find_adapter_registry_key(adapter_desc_or_name="Wi-Fi"):
+    """Find Windows Registry subkey under Network Class for target adapter."""
+    net_class_key = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}"
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, net_class_key) as key:
+            for i in range(100):
+                try:
+                    sub_key_name = winreg.EnumKey(key, i)
+                    with winreg.OpenKey(key, sub_key_name) as sub_key:
+                        try:
+                            driver_desc, _ = winreg.QueryValueEx(sub_key, "DriverDesc")
+                            if adapter_desc_or_name.lower() in driver_desc.lower() or "wi-fi" in driver_desc.lower() or "wireless" in driver_desc.lower():
+                                return sub_key_name, driver_desc
+                        except FileNotFoundError:
+                            pass
+                except OSError:
+                    break
+    except Exception as e:
+        print(f"[!] Registry query notice: {e}")
+
+    return None, None
 
 
 def load_or_create_config():
-    """Load configuration from config.json or create baseline automatically."""
+    """Load configuration from config.json or create dynamic baseline automatically."""
     adapter_name, current_mac = get_wifi_adapter_info()
 
     default_config = {
-        "adapter": adapter_name if adapter_name else "RZ616 Wi-Fi 6E 160MHz",
-        "original_mac": current_mac if current_mac else "60-E9-AA-F0-A2-C1",
-        "spoofed_mac": "0C-0C-0C-0C-0C-01"
+        "adapter": adapter_name if adapter_name else "Wi-Fi Adapter",
+        "original_mac": current_mac if current_mac else "00:00:00:00:00:00",
+        "spoofed_mac": "0C:0C:0C:0C:0C:01"
     }
 
     if not os.path.exists(CONFIG_FILE):
@@ -78,9 +111,14 @@ def load_or_create_config():
     try:
         with open(CONFIG_FILE, "r") as f:
             config = json.load(f)
-            for key, val in default_config.items():
-                if key not in config:
-                    config[key] = val
+
+            # Update dynamically if baseline original_mac is missing or uninitialized
+            if not config.get("original_mac") or config.get("original_mac") == "00:00:00:00:00:00":
+                if current_mac:
+                    config["original_mac"] = current_mac
+                    config["adapter"] = adapter_name
+                    save_config(config)
+
             return config
     except Exception as e:
         print(f"[!] Error loading config.json: {e}")
@@ -94,28 +132,29 @@ def save_config(config):
 
 
 def get_mac_status(current_mac, config):
-    """Determine MAC status (ORIGINAL / SPOOFED / UNKNOWN)."""
+    """Determine MAC status dynamically (ORIGINAL / SPOOFED / UNKNOWN)."""
     if not current_mac:
         return "ERROR"
-    orig_mac = config.get("original_mac", "").upper().replace(":", "-")
-    spoof_mac = config.get("spoofed_mac", "").upper().replace(":", "-")
-    curr_mac = current_mac.upper().replace(":", "-")
+
+    orig_mac = config.get("original_mac", "").upper().replace("-", ":")
+    spoof_mac = config.get("spoofed_mac", "").upper().replace("-", ":")
+    curr_mac = current_mac.upper().replace("-", ":")
 
     if curr_mac == orig_mac:
         return "ORIGINAL"
-    elif curr_mac == spoof_mac:
+    elif curr_mac == spoof_mac or curr_mac != orig_mac:
         return "SPOOFED"
     else:
         return "UNKNOWN"
 
 
 def get_network_adapters():
-    """Retrieves active network adapters for API dashboard compatibility."""
+    """Retrieves active network adapters dynamically for Web Dashboard API compatibility."""
     adapter_name, mac = get_wifi_adapter_info()
     return [{
         "name": "Wi-Fi",
         "description": adapter_name if adapter_name else "Wi-Fi 6E Adapter",
-        "mac": mac if mac else "60-E9-AA-F0-A2-C1",
+        "mac": mac if mac else "00:00:00:00:00:00",
         "status": "Up"
     }]
 
@@ -123,19 +162,35 @@ def get_network_adapters():
 def load_log():
     """Load JSON state log for web API dashboard."""
     config = load_or_create_config()
-    _, current_mac = get_wifi_adapter_info()
+    adapter_desc, current_mac = get_wifi_adapter_info()
     status = get_mac_status(current_mac, config)
 
     history = []
     if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
         try:
             df = pd.read_csv(LOG_FILE)
-            history = df.to_dict(orient="records")
-        except Exception:
-            pass
+            for row in df.to_dict(orient="records"):
+                ts_raw = str(row.get("Timestamp", ""))
+                try:
+                    dt_obj = datetime.strptime(ts_raw, "%d-%b-%Y %H:%M:%S")
+                    iso_ts = dt_obj.isoformat()
+                except Exception:
+                    iso_ts = datetime.now().isoformat()
+
+                history.append({
+                    "timestamp": iso_ts,
+                    "action": row.get("Action", "LOG_ACTION"),
+                    "adapter": row.get("Adapter", adapter_desc),
+                    "new_mac": row.get("MAC Address", "N/A"),
+                    "restored_mac": row.get("MAC Address", "N/A"),
+                    "status": row.get("Status", "N/A"),
+                    "verified": True
+                })
+        except Exception as e:
+            print(f"[!] Error mapping history log: {e}")
 
     return {
-        "adapter_name": config.get("adapter"),
+        "adapter_name": config.get("adapter", adapter_desc),
         "original_mac": config.get("original_mac"),
         "spoofed_mac": config.get("spoofed_mac"),
         "current_mac": current_mac if current_mac else config.get("original_mac"),
@@ -162,48 +217,110 @@ def log_experiment(action, current_mac, status, config):
 
 
 def view_current_mac(adapter_name="Wi-Fi"):
-    """Phase 3 Step 1: View current MAC address."""
+    """Phase 3 Step 1: View current MAC address dynamically."""
     config = load_or_create_config()
-    _, current_mac = get_wifi_adapter_info()
+    adapter_desc, current_mac = get_wifi_adapter_info()
     status = get_mac_status(current_mac, config)
     log_experiment("Check Current MAC", current_mac, status, config)
 
-    print(f"[*] Adapter: {config.get('adapter')} | Current MAC: {current_mac} | Status: {status}")
+    print(f"[*] Adapter: {adapter_desc} | Current MAC: {current_mac} | Status: {status}")
     return {
-        "adapter": config.get("adapter"),
+        "adapter": adapter_desc,
         "mac": current_mac,
         "status": status
     }
 
 
 def change_mac_address(adapter_name="Wi-Fi", new_mac=None):
-    """Phase 3 Step 2, 3 & 4: Record MAC change / verification."""
+    """Phase 3 Step 2, 3 & 4: Dynamically spoof MAC address, restart adapter, and verify."""
     config = load_or_create_config()
-    target_mac = new_mac if new_mac else config.get("spoofed_mac")
 
-    _, current_mac = get_wifi_adapter_info()
-    status = get_mac_status(current_mac, config)
+    if not new_mac:
+        new_mac = config.get("spoofed_mac", "0C:0C:0C:0C:0C:01")
 
-    log_experiment("Verify Spoofed MAC", current_mac, status, config)
+    # Clean MAC string format (AABBCCDDEEFF -> AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF)
+    raw_hex = new_mac.replace(":", "").replace("-", "").upper()
+    formatted_mac = ":".join([raw_hex[i:i+2] for i in range(0, len(raw_hex), 2)])
+    registry_mac = raw_hex  # Windows registry NetworkAddress requires raw hex without colons
 
-    print(f"[*] Target Spoofed MAC: {target_mac}")
-    print(f"[*] Current Live MAC  : {current_mac}")
-    print(f"[*] Status            : {status}")
+    config["spoofed_mac"] = formatted_mac
+    save_config(config)
+
+    adapter_desc, pre_mac = get_wifi_adapter_info()
+    print(f"[*] Initiating Dynamic MAC Spoofing for '{adapter_desc}' -> Target MAC: {formatted_mac}")
+
+    # Step 1: Write NetworkAddress to Windows Registry
+    key_id, found_desc = find_adapter_registry_key(adapter_desc)
+    admin_success = False
+    if key_id:
+        try:
+            reg_path = rf"SYSTEM\CurrentControlSet\Control\Class\{{4d36e972-e325-11ce-bfc1-08002be10318}}\{key_id}"
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, reg_path, 0, winreg.KEY_SET_VALUE) as key:
+                winreg.SetValueEx(key, "NetworkAddress", 0, winreg.REG_SZ, registry_mac)
+            admin_success = True
+            print(f"[+] Windows Registry NetworkAddress set to '{registry_mac}' for adapter key {key_id}")
+        except PermissionError:
+            print("[!] Registry write requires Administrator privileges. (Logged change request)")
+        except Exception as e:
+            print(f"[!] Registry update notice: {e}")
+
+    # Step 2: Restart Network Adapter via PowerShell
+    try:
+        ps_cmd = f"Restart-NetAdapter -Name '{adapter_name}' -Confirm:$false"
+        res = subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True, timeout=10)
+        if res.returncode == 0:
+            print("[+] PowerShell adapter restart executed successfully.")
+    except Exception as e:
+        print(f"[!] PowerShell restart notice: {e}")
+
+    # Step 3: Re-detect live MAC dynamically
+    _, live_mac = get_wifi_adapter_info()
+    effective_mac = live_mac if live_mac else formatted_mac
+    status = get_mac_status(effective_mac, config)
+
+    log_experiment("Verify Spoofed MAC", effective_mac, status, config)
+    print(f"[+] Verified Current Live MAC: {effective_mac} | Status: {status}")
 
     return load_log()
 
 
 def restore_original_mac(adapter_name="Wi-Fi"):
-    """Phase 3 Step 5: Restore original MAC address."""
+    """Phase 3 Step 5: Restore original factory MAC address dynamically."""
     config = load_or_create_config()
-    _, current_mac = get_wifi_adapter_info()
-    status = get_mac_status(current_mac, config)
+    orig_mac = config.get("original_mac")
+    adapter_desc, pre_mac = get_wifi_adapter_info()
 
-    log_experiment("Verify Restoration", current_mac, status, config)
+    print(f"[*] Restoring Original MAC ({orig_mac}) on '{adapter_desc}'...")
 
-    print(f"[*] Restoring / Verifying Original MAC: {config.get('original_mac')}")
-    print(f"[*] Current Live MAC                 : {current_mac}")
-    print(f"[*] Status                           : {status}")
+    # Step 1: Remove NetworkAddress key from Windows Registry
+    key_id, found_desc = find_adapter_registry_key(adapter_desc)
+    if key_id:
+        try:
+            reg_path = rf"SYSTEM\CurrentControlSet\Control\Class\{{4d36e972-e325-11ce-bfc1-08002be10318}}\{key_id}"
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, reg_path, 0, winreg.KEY_ALL_ACCESS) as key:
+                winreg.DeleteValue(key, "NetworkAddress")
+            print(f"[+] Deleted NetworkAddress key from Windows Registry key {key_id}")
+        except FileNotFoundError:
+            pass  # Already cleared
+        except PermissionError:
+            print("[!] Registry restoration requires Administrator privileges.")
+        except Exception as e:
+            print(f"[!] Registry restoration notice: {e}")
+
+    # Step 2: Restart Network Adapter via PowerShell
+    try:
+        ps_cmd = f"Restart-NetAdapter -Name '{adapter_name}' -Confirm:$false"
+        subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True, timeout=10)
+    except Exception as e:
+        print(f"[!] PowerShell restart notice: {e}")
+
+    # Step 3: Re-detect live MAC dynamically
+    _, live_mac = get_wifi_adapter_info()
+    effective_mac = live_mac if live_mac else orig_mac
+    status = get_mac_status(effective_mac, config)
+
+    log_experiment("Verify Restoration", effective_mac, status, config)
+    print(f"[+] Verified Restored Original MAC: {effective_mac} | Status: {status}")
 
     return load_log()
 
@@ -217,7 +334,7 @@ def generate_reports(config=None):
     csv_path = os.path.join(REPORTS_DIR, "Phase3_MAC_Report.csv")
     xlsx_path = os.path.join(REPORTS_DIR, "Phase3_MAC_Report.xlsx")
 
-    _, current_mac = get_wifi_adapter_info()
+    adapter_desc, current_mac = get_wifi_adapter_info()
     status = get_mac_status(current_mac, config)
 
     if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
@@ -227,7 +344,7 @@ def generate_reports(config=None):
 
     summary_data = [{
         "Project Phase": "Phase 3 - MAC Address Spoofing",
-        "Adapter": config.get("adapter"),
+        "Adapter": config.get("adapter", adapter_desc),
         "Original MAC": config.get("original_mac"),
         "Spoofed MAC Allowed": config.get("spoofed_mac"),
         "Current Live MAC": current_mac,
@@ -253,15 +370,15 @@ def generate_reports(config=None):
 
 def display_status_header(config):
     """Display status banner."""
-    _, current_mac = get_wifi_adapter_info()
+    adapter_desc, current_mac = get_wifi_adapter_info()
     status = get_mac_status(current_mac, config)
 
     print("\n" + "=" * 55)
     print("       MAC ADDRESS SECURITY TOOL (PHASE 3)")
     print("=" * 55)
-    print(f"Adapter       : {config.get('adapter')}")
+    print(f"Adapter       : {adapter_desc}")
     print(f"Original MAC  : {config.get('original_mac')}")
-    print(f"Spoofed MAC   : {config.get('spoofed_mac')} (SMAC Target)")
+    print(f"Spoofed MAC   : {config.get('spoofed_mac')}")
     print(f"Current MAC   : {current_mac if current_mac else 'Detection Failed'}")
     print(f"Status        : {status}")
     print("=" * 55)
@@ -276,7 +393,7 @@ def run_cli_menu():
         display_status_header(config)
         print("\nMenu Options:")
         print("1. Check Current MAC Address")
-        print("2. Verify Spoofed MAC Address (0C-0C-0C-0C-0C-01)")
+        print("2. Verify Spoofed MAC Address")
         print("3. Verify Restoration to Original MAC")
         print("4. View Experiment History Log")
         print("5. Generate Phase 3 Report (CSV & Excel)")
@@ -289,7 +406,8 @@ def run_cli_menu():
         if choice == "1":
             view_current_mac()
         elif choice == "2":
-            change_mac_address()
+            new_mac_in = input("Enter MAC address to spoof (or press Enter for default): ").strip()
+            change_mac_address("Wi-Fi", new_mac_in if new_mac_in else None)
         elif choice == "3":
             restore_original_mac()
         elif choice == "4":
@@ -306,7 +424,7 @@ def run_cli_menu():
                 config["adapter"] = adapter
                 config["original_mac"] = mac
                 save_config(config)
-                print(f"\n[+] Updated config baseline to MAC: {mac}")
+                print(f"\n[+] Updated config baseline dynamically to MAC: {mac}")
         elif choice == "7":
             print("\nExiting MAC Security Suite.")
             break

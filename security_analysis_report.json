@@ -1,14 +1,14 @@
 {
-    "generated_at": "2026-08-10T12:29:04.492193",
+    "generated_at": "2026-08-10T14:46:50.854878",
     "summary": {
         "total_hosts_evaluated": 1,
         "unnecessary_open_ports_count": 3,
         "insecure_protocols_found": [
+            "HTTP",
             "FTP",
             "DNS",
-            "MSRPC",
             "SMB",
-            "HTTP"
+            "MSRPC"
         ],
         "recommended_firewall_rules_count": 3,
         "security_score": 10
@@ -41,6 +41,13 @@
     ],
     "insecure_protocols": [
         {
+            "protocol": "HTTP",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
+            }
+        },
+        {
             "protocol": "FTP",
             "details": {
                 "severity": "High",
@@ -55,13 +62,6 @@
             }
         },
         {
-            "protocol": "MSRPC",
-            "details": {
-                "severity": "Medium",
-                "mitigation": "Enforce encryption."
-            }
-        },
-        {
             "protocol": "SMB",
             "details": {
                 "severity": "Medium",
@@ -69,10 +69,10 @@
             }
         },
         {
-            "protocol": "HTTP",
+            "protocol": "MSRPC",
             "details": {
                 "severity": "Medium",
-                "mitigation": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
+                "mitigation": "Enforce encryption."
             }
         }
     ],
@@ -104,6 +104,12 @@
     ],
     "security_improvements": [
         {
+            "category": "Insecure Protocol: HTTP",
+            "severity": "Medium",
+            "finding": "Detected plain-text HTTP traffic across network.",
+            "action_item": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
+        },
+        {
             "category": "Insecure Protocol: FTP",
             "severity": "High",
             "finding": "Detected plain-text FTP traffic across network.",
@@ -114,12 +120,6 @@
             "severity": "Low",
             "finding": "Detected plain-text DNS traffic across network.",
             "action_item": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."
-        },
-        {
-            "category": "Insecure Protocol: HTTP",
-            "severity": "Medium",
-            "finding": "Detected plain-text HTTP traffic across network.",
-            "action_item": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
         },
         {
             "category": "Network Segmentation & Isolation",
