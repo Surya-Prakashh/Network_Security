@@ -216,10 +216,13 @@ def run_single_nmap_command(cmd_type, target):
     if not target:
         target = net_info["subnet_cidr"] if cmd_type == "ping_sweep" else (net_info["default_gateway"] or net_info["local_ip"])
 
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    temp_xml_path = os.path.join(script_dir, "temp_scan.xml")
+
     # Build Nmap command array
     if cmd_type == "ping_sweep":
-        base_cmd = ["nmap", "-sn", target]
-        display_cmd = f"nmap -sn {target}"
+        base_cmd = ["nmap", "-sn", "--min-rate", "300", target]
+        display_cmd = f"nmap -sn --min-rate 300 {target}"
     elif cmd_type == "basic_scan":
         base_cmd = ["nmap", target]
         display_cmd = f"nmap {target}"
@@ -238,33 +241,34 @@ def run_single_nmap_command(cmd_type, target):
 
     print(f"[*] Executing Nmap Command: {display_cmd}")
 
-    # Run for terminal output
+    terminal_out = ""
+    xml_out = ""
+    
+    # Run Nmap CLI execution outputting both text stdout and XML file
     try:
-        term_proc = subprocess.run(
-            base_cmd,
+        full_cmd = base_cmd + ["-oX", temp_xml_path]
+        proc = subprocess.run(
+            full_cmd,
             capture_output=True,
             text=True,
-            timeout=180
+            timeout=300
         )
-        terminal_out = f"$ {display_cmd}\n\n" + (term_proc.stdout or "")
-        if term_proc.stderr:
-            terminal_out += f"\n[Stderr Output]\n{term_proc.stderr}"
+        terminal_out = f"$ {display_cmd}\n\n" + (proc.stdout or "")
+        if proc.stderr:
+            terminal_out += f"\n[Stderr Output]\n{proc.stderr}"
+
+        if os.path.exists(temp_xml_path):
+            with open(temp_xml_path, "r", encoding="utf-8", errors="ignore") as f:
+                xml_out = f.read()
+            try:
+                os.remove(temp_xml_path)
+            except Exception:
+                pass
+    except subprocess.TimeoutExpired as te:
+        stdout_part = te.stdout or ""
+        terminal_out = f"$ {display_cmd}\n\n[Timeout Warning: Scan exceeded 300 seconds]\n{stdout_part}"
     except Exception as e:
         terminal_out = f"$ {display_cmd}\n\nError executing Nmap: {str(e)}"
-
-    # Run with XML flag for structured JSON extraction
-    xml_out = ""
-    try:
-        xml_cmd = base_cmd + ["-oX", "-"]
-        xml_proc = subprocess.run(
-            xml_cmd,
-            capture_output=True,
-            text=True,
-            timeout=180
-        )
-        xml_out = xml_proc.stdout
-    except Exception as e:
-        print(f"[!] XML execution warning: {e}")
 
     hosts_data = parse_nmap_xml(xml_out)
     if not hosts_data:

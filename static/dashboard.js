@@ -201,59 +201,70 @@ function updateDiscoveredHostDropdown(hosts) {
     });
 }
 
+function renderScanResults(data) {
+    if (!data) return;
+
+    if (data.timestamp) {
+        const scanTimeElem = document.getElementById("m1-scan-time");
+        if (scanTimeElem) scanTimeElem.textContent = new Date(data.timestamp).toLocaleTimeString();
+    }
+
+    const engineElem = document.getElementById("m1-engine-badge");
+    if (engineElem) engineElem.textContent = data.scan_mode || "Live Real Nmap";
+
+    if (data.terminal_output) {
+        const consoleElem = document.getElementById("nmapTerminalConsole");
+        if (consoleElem) consoleElem.textContent = data.terminal_output;
+    }
+
+    updateDiscoveredHostDropdown(data.hosts || []);
+
+    const hostsGrid = document.getElementById("hostsGrid");
+    if (hostsGrid) {
+        hostsGrid.innerHTML = "";
+        (data.hosts || []).forEach(host => {
+            const card = document.createElement("div");
+            card.className = "host-card";
+
+            let portsHtml = "";
+            (host.ports || []).forEach(p => {
+                portsHtml += `
+                    <div class="port-pill">
+                        <span class="port-num">Port ${p.port}/${p.protocol}</span>
+                        <span>${p.service} (${p.version})</span>
+                    </div>
+                `;
+            });
+
+            card.innerHTML = `
+                <div class="host-header">
+                    <span class="host-ip">${host.ip}</span>
+                    <span class="host-status">${host.status.toUpperCase()}</span>
+                </div>
+                <div class="host-details">
+                    <div><strong>Hostname:</strong> ${host.hostname}</div>
+                    <div><strong>MAC Address:</strong> ${host.mac_address}</div>
+                    <div><strong>Vendor / Hardware:</strong> ${host.vendor}</div>
+                    <div><strong>Detected OS:</strong> ${host.os_details}</div>
+                </div>
+                <h4>Open Services (${(host.ports || []).length}):</h4>
+                <div class="ports-list" style="margin-top: 0.5rem;">
+                    ${portsHtml || '<p style="color:#9ca3af;">No open ports detected.</p>'}
+                </div>
+            `;
+            hostsGrid.appendChild(card);
+        });
+    }
+
+    renderPortChart(data.hosts || []);
+}
+
 function loadModule1Data() {
     loadNetworkInfo();
     fetch("/api/module1/scan")
         .then(res => res.json())
         .then(data => {
-            document.getElementById("m1-scan-time").textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "N/A";
-            document.getElementById("m1-engine-badge").textContent = data.scan_mode || "Live Real Nmap";
-
-            if (data.terminal_output) {
-                document.getElementById("nmapTerminalConsole").textContent = data.terminal_output;
-            } else {
-                fetchTerminalLog();
-            }
-
-            const hostsGrid = document.getElementById("hostsGrid");
-            hostsGrid.innerHTML = "";
-
-            updateDiscoveredHostDropdown(data.hosts || []);
-
-            (data.hosts || []).forEach(host => {
-                const card = document.createElement("div");
-                card.className = "host-card";
-
-                let portsHtml = "";
-                (host.ports || []).forEach(p => {
-                    portsHtml += `
-                        <div class="port-pill">
-                            <span class="port-num">Port ${p.port}/${p.protocol}</span>
-                            <span>${p.service} (${p.version})</span>
-                        </div>
-                    `;
-                });
-
-                card.innerHTML = `
-                    <div class="host-header">
-                        <span class="host-ip">${host.ip}</span>
-                        <span class="host-status">${host.status.toUpperCase()}</span>
-                    </div>
-                    <div class="host-details">
-                        <div><strong>Hostname:</strong> ${host.hostname}</div>
-                        <div><strong>MAC Address:</strong> ${host.mac_address}</div>
-                        <div><strong>Vendor / Hardware:</strong> ${host.vendor}</div>
-                        <div><strong>Detected OS:</strong> ${host.os_details}</div>
-                    </div>
-                    <h4>Open Services (${(host.ports || []).length}):</h4>
-                    <div class="ports-list" style="margin-top: 0.5rem;">
-                        ${portsHtml || '<p style="color:#9ca3af;">No open ports detected.</p>'}
-                    </div>
-                `;
-                hostsGrid.appendChild(card);
-            });
-
-            renderPortChart(data.hosts || []);
+            renderScanResults(data);
         })
         .catch(err => console.error("Error loading Module 1:", err));
 }
@@ -288,11 +299,14 @@ function executeNmapCmd(cmdType) {
     .then(res => res.json())
     .then(data => {
         showToast(`Nmap ${cmdType.replace('_', ' ')} completed!`, "success");
-        loadModule1Data();
+        renderScanResults(data);
         loadOverviewData();
         loadPhase4Data();
     })
-    .catch(err => showToast("Command execution failed.", "error"));
+    .catch(err => {
+        console.error("Nmap command error:", err);
+        showToast("Command execution failed.", "error");
+    });
 }
 
 function triggerNmapScan() {

@@ -1,7 +1,1 @@
 IP Address,Hostname,Status,MAC Address,OS Details,Port,Protocol,Service,Version
-127.0.0.1,localhost,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),21,tcp,ftp,Microsoft ftpd
-127.0.0.1,localhost,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),135,tcp,msrpc,Microsoft Windows RPC
-127.0.0.1,localhost,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),445,tcp,microsoft-ds,Unknown Version
-127.0.0.1,localhost,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),3306,tcp,mysql,Unknown Version
-127.0.0.1,localhost,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),5000,tcp,http,Werkzeug httpd 3.1.4 Python 3.12.6
-127.0.0.1,localhost,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),5432,tcp,postgresql,PostgreSQL DB
