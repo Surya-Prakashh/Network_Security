@@ -110,7 +110,12 @@ def api_module2_packets():
     """Trigger or fetch Phase 2 Packet Capture results."""
     packet_file = os.path.join(BASE_DIR, "module2_packet_capture", "packet_analysis.json")
     if request.method == "POST":
-        res = analyze_pcap()
+        data = request.json or {}
+        pcap_path = data.get("pcap")          # optional PCAP file path
+        # interface / count / duration are accepted but live capture from
+        # the web server requires Administrator privileges; the sniffer
+        # handles the graceful fallback internally.
+        res = analyze_pcap(pcap_filepath=pcap_path)
         analyze_security_posture()
         return jsonify(res)
     
