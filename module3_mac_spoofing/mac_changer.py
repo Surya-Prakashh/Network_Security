@@ -243,7 +243,7 @@ def load_log():
     history = []
     if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
         try:
-            df = pd.read_csv(LOG_FILE)
+            df = pd.read_csv(LOG_FILE, on_bad_lines="skip")
             for row in df.to_dict(orient="records"):
                 ts_raw = str(row.get("Timestamp", ""))
                 try:
@@ -451,7 +451,7 @@ def generate_reports():
     adapter_desc, current_mac = get_wifi_adapter_info()
     status = get_mac_status(current_mac, baseline)
 
-    log_df = pd.read_csv(LOG_FILE) if (
+    log_df = pd.read_csv(LOG_FILE, on_bad_lines="skip") if (
         os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0
     ) else pd.DataFrame(columns=["Timestamp", "Hostname", "Adapter", "MAC Address", "Status", "Action"])
 
@@ -529,7 +529,7 @@ def run_cli_menu():
             restore_original_mac()
         elif choice == "4":
             if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
-                print("\n" + pd.read_csv(LOG_FILE).to_string(index=False))
+                print("\n" + pd.read_csv(LOG_FILE, on_bad_lines="skip").to_string(index=False))
             else:
                 print("\n[!] No experiment logs yet.")
         elif choice == "5":
