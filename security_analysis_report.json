@@ -1,57 +1,269 @@
 {
-    "generated_at": "2026-08-11T20:43:39.417072",
+    "generated_at": "2026-08-11T23:24:45.499145",
     "summary": {
-        "total_hosts_evaluated": 1,
-        "unnecessary_open_ports_count": 0,
+        "total_hosts_evaluated": 3,
+        "unnecessary_open_ports_count": 4,
         "insecure_protocols_found": [
-            "DNS",
-            "HTTP"
+            "NETBIOS",
+            "MSRPC",
+            "FTP",
+            "SMB"
         ],
-        "recommended_firewall_rules_count": 0,
-        "security_score": 80
+        "recommended_firewall_rules_count": 4,
+        "total_violations_count": 11,
+        "critical_violations_count": 4,
+        "security_score": 10
     },
-    "unnecessary_ports": [],
+    "unnecessary_ports": [
+        {
+            "ip": "10.24.96.60",
+            "port": 21,
+            "service": "ftp",
+            "version": "Unknown Version",
+            "risk_level": "High",
+            "reason": "Transmits exam credentials and test files in unencrypted cleartext; high risk of exam paper leakage."
+        },
+        {
+            "ip": "10.24.96.60",
+            "port": 135,
+            "service": "msrpc",
+            "version": "Unknown Version",
+            "risk_level": "Medium",
+            "reason": "Windows RPC endpoint mapper susceptible to network enumeration by secondary devices in the exam venue."
+        },
+        {
+            "ip": "10.24.96.60",
+            "port": 139,
+            "service": "netbios-ssn",
+            "version": "Unknown Version",
+            "risk_level": "High",
+            "reason": "Legacy NetBIOS Session Service prone to local candidate machine discovery and unauthorized session hijacking."
+        },
+        {
+            "ip": "10.24.96.60",
+            "port": 445,
+            "service": "microsoft-ds",
+            "version": "Unknown Version",
+            "risk_level": "Critical",
+            "reason": "Direct file sharing port frequently targeted by network exploits or unauthorized peer-to-peer exam answer sharing."
+        }
+    ],
     "insecure_protocols": [
         {
-            "protocol": "DNS",
+            "protocol": "NETBIOS",
             "details": {
-                "severity": "Low",
-                "mitigation": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."
+                "severity": "Medium",
+                "mitigation": "Enforce encryption."
             }
         },
         {
-            "protocol": "HTTP",
+            "protocol": "MSRPC",
             "details": {
                 "severity": "Medium",
-                "mitigation": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
+                "mitigation": "Enforce encryption."
+            }
+        },
+        {
+            "protocol": "FTP",
+            "details": {
+                "severity": "High",
+                "mitigation": "Replace plain FTP with secure SFTP (SSH File Transfer Protocol) for exam question/answer uploads."
+            }
+        },
+        {
+            "protocol": "SMB",
+            "details": {
+                "severity": "Medium",
+                "mitigation": "Enforce encryption."
             }
         }
     ],
-    "recommended_firewall_rules": [],
+    "recommended_firewall_rules": [
+        {
+            "target_ip": "10.24.96.60",
+            "port": 21,
+            "service": "FTP",
+            "windows_firewall_cmd": "netsh advfirewall firewall add rule name=\"Exam Security Block Port 21 (FTP)\" dir=in action=block protocol=TCP localport=21",
+            "linux_ufw_cmd": "sudo ufw deny in proto tcp to any port 21 comment \"Exam Security Block FTP\"",
+            "rationale": "Block prohibited port 21 (FTP) on 10.24.96.60 to isolate the exam environment and prevent remote cheating/assistance."
+        },
+        {
+            "target_ip": "10.24.96.60",
+            "port": 135,
+            "service": "MSRPC",
+            "windows_firewall_cmd": "netsh advfirewall firewall add rule name=\"Exam Security Block Port 135 (MSRPC)\" dir=in action=block protocol=TCP localport=135",
+            "linux_ufw_cmd": "sudo ufw deny in proto tcp to any port 135 comment \"Exam Security Block MSRPC\"",
+            "rationale": "Block prohibited port 135 (MSRPC) on 10.24.96.60 to isolate the exam environment and prevent remote cheating/assistance."
+        },
+        {
+            "target_ip": "10.24.96.60",
+            "port": 139,
+            "service": "NetBIOS",
+            "windows_firewall_cmd": "netsh advfirewall firewall add rule name=\"Exam Security Block Port 139 (NetBIOS)\" dir=in action=block protocol=TCP localport=139",
+            "linux_ufw_cmd": "sudo ufw deny in proto tcp to any port 139 comment \"Exam Security Block NetBIOS\"",
+            "rationale": "Block prohibited port 139 (NetBIOS) on 10.24.96.60 to isolate the exam environment and prevent remote cheating/assistance."
+        },
+        {
+            "target_ip": "10.24.96.60",
+            "port": 445,
+            "service": "SMB",
+            "windows_firewall_cmd": "netsh advfirewall firewall add rule name=\"Exam Security Block Port 445 (SMB)\" dir=in action=block protocol=TCP localport=445",
+            "linux_ufw_cmd": "sudo ufw deny in proto tcp to any port 445 comment \"Exam Security Block SMB\"",
+            "rationale": "Block prohibited port 445 (SMB) on 10.24.96.60 to isolate the exam environment and prevent remote cheating/assistance."
+        }
+    ],
     "security_improvements": [
         {
-            "category": "Insecure Protocol: DNS",
-            "severity": "Low",
-            "finding": "Detected plain-text DNS traffic across network.",
-            "action_item": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."
-        },
-        {
-            "category": "Insecure Protocol: HTTP",
-            "severity": "Medium",
-            "finding": "Detected plain-text HTTP traffic across network.",
-            "action_item": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."
-        },
-        {
-            "category": "Network Segmentation & Isolation",
+            "category": "Insecure Exam Protocol: FTP",
             "severity": "High",
-            "finding": "Management devices and IoT cameras share the same subnet as workstations.",
-            "action_item": "Isolate IoT devices and IP cameras onto a dedicated VLAN with strict inter-VLAN firewall routing."
+            "finding": "Detected unencrypted plain-text FTP traffic during exam session.",
+            "action_item": "Replace plain FTP with secure SFTP (SSH File Transfer Protocol) for exam question/answer uploads."
         },
         {
-            "category": "MAC Address Privacy & Spoofing Defense",
+            "category": "Exam Environment Network Isolation",
+            "severity": "High",
+            "finding": "Candidate examination workstation shares the subnet with unmonitored local network devices.",
+            "action_item": "Isolate candidate exam devices onto a dedicated Exam VLAN with strict inter-VLAN firewall routing during testing."
+        },
+        {
+            "category": "Candidate Device Verification & MAC Anti-Spoofing",
             "severity": "Medium",
-            "finding": "Static MAC filtering is vulnerable to MAC address spoofing (Phase 3 testing).",
-            "action_item": "Enforce 802.1X Port-Based Network Access Control (NAC) instead of relying solely on MAC filtering."
+            "finding": "Static MAC identity checks are vulnerable to device impersonation via MAC address spoofing (Phase 3 audit).",
+            "action_item": "Enforce 802.1X Port-Based Network Access Control (NAC) alongside candidate hardware MAC verification."
+        }
+    ],
+    "exam_violations": [
+        {
+            "id": 11,
+            "timestamp": "2026-08-11 23:24:45",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "127.0.0.1",
+            "threat_type": "MAC_SPOOFING",
+            "port": null,
+            "target_ip": "192.168.1.1",
+            "risk": "HIGH",
+            "detail": "Candidate workstation MAC address changed on Wi-Fi to 02:91:A1:86:E0:9B (Device impersonation attempt).",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 10,
+            "timestamp": "2026-08-11 23:21:57",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "127.0.0.1",
+            "threat_type": "MAC_SPOOFING",
+            "port": null,
+            "target_ip": "192.168.1.1",
+            "risk": "HIGH",
+            "detail": "Candidate workstation MAC address changed on Wi-Fi to 02:42:83:05:69:E7 (Device impersonation attempt).",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 9,
+            "timestamp": "2026-08-11 23:20:07",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.185",
+            "threat_type": "DNS",
+            "port": 53,
+            "target_ip": "192.168.1.1",
+            "risk": "MEDIUM",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.185) attempted DNS lookup to prohibited domain: cheating-answers.com",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 8,
+            "timestamp": "2026-08-11 23:20:00",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.185",
+            "threat_type": "RDP",
+            "port": 3389,
+            "target_ip": "192.168.1.1",
+            "risk": "CRITICAL",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.185) attempted Remote Desktop Connection (Port 3389 RDP).",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 7,
+            "timestamp": "2026-08-11 23:19:05",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.185",
+            "threat_type": "RDP",
+            "port": 3389,
+            "target_ip": "192.168.1.1",
+            "risk": "CRITICAL",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.185) attempted Remote Desktop Connection (Port 3389 RDP).",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 6,
+            "timestamp": "2026-08-11 23:18:04",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.185",
+            "threat_type": "DNS",
+            "port": 53,
+            "target_ip": "192.168.1.1",
+            "risk": "MEDIUM",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.185) attempted DNS lookup to prohibited domain: cheating-answers.com",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 5,
+            "timestamp": "2026-08-11 23:18:01",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.185",
+            "threat_type": "FTP",
+            "port": 21,
+            "target_ip": "192.168.1.1",
+            "risk": "HIGH",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.185) attempted Unencrypted File Transfer (Port 21 FTP).",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 4,
+            "timestamp": "2026-08-11 23:17:54",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.185",
+            "threat_type": "RDP",
+            "port": 3389,
+            "target_ip": "192.168.1.1",
+            "risk": "CRITICAL",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.185) attempted Remote Desktop Connection (Port 3389 RDP).",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 3,
+            "timestamp": "2026-08-11 23:14:41",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.60",
+            "threat_type": "DNS",
+            "port": 53,
+            "target_ip": "192.168.1.1",
+            "risk": "MEDIUM",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.60) attempted DNS lookup to prohibited domain: cheating-answers.com",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 2,
+            "timestamp": "2026-08-11 23:14:34",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.60",
+            "threat_type": "FTP",
+            "port": 21,
+            "target_ip": "192.168.1.1",
+            "risk": "HIGH",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.60) attempted Unencrypted File Transfer (Port 21 FTP).",
+            "status": "FLAGGED & BLOCKED"
+        },
+        {
+            "id": 1,
+            "timestamp": "2026-08-11 23:14:29",
+            "candidate_id": "CANDIDATE-8821",
+            "client_ip": "10.24.96.60",
+            "threat_type": "RDP",
+            "port": 3389,
+            "target_ip": "192.168.1.1",
+            "risk": "CRITICAL",
+            "detail": "Candidate CANDIDATE-8821 (10.24.96.60) attempted Remote Desktop Connection (Port 3389 RDP).",
+            "status": "FLAGGED & BLOCKED"
         }
     ]
 }

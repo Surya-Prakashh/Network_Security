@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Analysis & MAC Spoofing Suite</title>
+    <title>Secure Online Examination Monitoring System</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,13 +24,18 @@
         <div class="logo-container">
             <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
             <div>
-                <h1 class="logo-title">CyberShield Network Suite</h1>
-                <p class="logo-subtitle">Network Discovery • Packet Analysis • MAC Spoofing • Security Audit</p>
+                <h1 class="logo-title">Secure Online Examination Monitoring System</h1>
+                <p class="logo-subtitle">Exam Environment Verification • Candidate Device Verification • Network Monitoring • Exam Security Assessment</p>
             </div>
-        </div>
-        <div class="system-status">
-            <span class="status-indicator active"></span>
-            <span class="status-text">Local Assessment Active</span>
+        <div style="display: flex; gap: 1.5rem; align-items: center;">
+            <div style="background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); padding: 0.35rem 0.85rem; border-radius: 8px; font-size: 0.82rem; color: #fff;">
+                <i class="fa-solid fa-wifi" style="color: var(--accent-cyan); margin-right: 6px;"></i>
+                Candidate Portal (System 2): <a id="headerCandidateUrl" href="/candidate" target="_blank" style="color: var(--accent-cyan); font-weight: 700; text-decoration: none;">http://...:5000/candidate</a>
+            </div>
+            <div class="system-status">
+                <span class="status-indicator active"></span>
+                <span class="status-text">Exam Monitoring Active</span>
+            </div>
         </div>
     </header>
 
@@ -40,32 +45,32 @@
         <aside class="sidebar">
             <div class="sidebar-menu">
                 <button class="nav-btn active" data-tab="overview">
-                    <i class="fa-solid fa-chart-pie"></i> Executive Overview
+                    <i class="fa-solid fa-chart-pie"></i> Exam Security Overview
                 </button>
                 <button class="nav-btn" data-tab="module1">
-                    <i class="fa-solid fa-network-wired"></i> Module 1: Discovery
+                    <i class="fa-solid fa-network-wired"></i> Environment Verification
                     <span class="badge badge-m1">Phase 1</span>
                 </button>
                 <button class="nav-btn" data-tab="module2">
-                    <i class="fa-solid fa-wave-square"></i> Module 2: Packet Capture
+                    <i class="fa-solid fa-wave-square"></i> Exam Traffic Monitoring
                     <span class="badge badge-m2">Phase 2</span>
                 </button>
                 <button class="nav-btn" data-tab="module3">
-                    <i class="fa-solid fa-fingerprint"></i> Module 3: MAC Spoofing
+                    <i class="fa-solid fa-fingerprint"></i> Device Verification
                     <span class="badge badge-m3">Phase 3</span>
                 </button>
                 <button class="nav-btn" data-tab="phase4">
-                    <i class="fa-solid fa-user-shield"></i> Phase 4: Security Audit
+                    <i class="fa-solid fa-user-shield"></i> Exam Security Assessment
                     <span class="badge badge-sec">Phase 4</span>
                 </button>
             </div>
 
             <div class="team-footer">
-                <p class="team-title"><i class="fa-solid fa-users"></i> Project Architecture</p>
+                <p class="team-title"><i class="fa-solid fa-users"></i> Exam Security Suite</p>
                 <div class="team-members">
-                    <div class="member-tag">Folder 1: Nmap Scanner</div>
-                    <div class="member-tag">Folder 2: Packet Capture</div>
-                    <div class="member-tag">Folder 3: MAC Changer</div>
+                    <div class="member-tag">Module 1: Environment Check</div>
+                    <div class="member-tag">Module 2: Exam Traffic Monitor</div>
+                    <div class="member-tag">Module 3: Device Verification</div>
                 </div>
             </div>
         </aside>
@@ -75,9 +80,9 @@
             <!-- TAB 1: EXECUTIVE OVERVIEW -->
             <section id="overview" class="tab-content active">
                 <div class="section-header">
-                    <h2>Network Health & Assessment Overview</h2>
+                    <h2>Online Examination Security Monitoring Overview</h2>
                     <button class="btn btn-primary" onclick="refreshAllData()">
-                        <i class="fa-solid fa-arrows-rotate"></i> Refresh Dashboard Data
+                        <i class="fa-solid fa-arrows-rotate"></i> Refresh Exam Data
                     </button>
                 </div>
 
@@ -86,23 +91,23 @@
                     <div class="kpi-card">
                         <div class="kpi-icon blue"><i class="fa-solid fa-server"></i></div>
                         <div class="kpi-details">
-                            <span class="kpi-label">Active Hosts Found</span>
+                            <span class="kpi-label">Active Exam Network Devices</span>
                             <h3 class="kpi-value" id="kpi-hosts">0</h3>
-                            <span class="kpi-sub">Network Discovery (Phase 1)</span>
+                            <span class="kpi-sub">Environment Verification (Phase 1)</span>
                         </div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-icon purple"><i class="fa-solid fa-bars-staggered"></i></div>
                         <div class="kpi-details">
-                            <span class="kpi-label">Network Packets Analyzed</span>
+                            <span class="kpi-label">Exam Session Packets Analyzed</span>
                             <h3 class="kpi-value" id="kpi-packets">0</h3>
-                            <span class="kpi-sub">Traffic Capture (Phase 2)</span>
+                            <span class="kpi-sub">Traffic Monitoring (Phase 2)</span>
                         </div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-icon orange"><i class="fa-solid fa-id-card"></i></div>
                         <div class="kpi-details">
-                            <span class="kpi-label">MAC Address Status</span>
+                            <span class="kpi-label">Candidate Device MAC Status</span>
                             <h3 class="kpi-value" id="kpi-mac-status">Normal</h3>
                             <span class="kpi-sub" id="kpi-mac-addr">00:00:00:00:00:00</span>
                         </div>
@@ -110,9 +115,9 @@
                     <div class="kpi-card">
                         <div class="kpi-icon green"><i class="fa-solid fa-shield-heart"></i></div>
                         <div class="kpi-details">
-                            <span class="kpi-label">Security Posture Score</span>
+                            <span class="kpi-label">Exam Environment Security Score</span>
                             <h3 class="kpi-value" id="kpi-sec-score">0 / 100</h3>
-                            <span class="kpi-sub" id="kpi-vuln-count">0 Open Vulnerabilities</span>
+                            <span class="kpi-sub" id="kpi-vuln-count">0 Prohibited Open Ports</span>
                         </div>
                     </div>
                 </div>
@@ -121,7 +126,7 @@
                 <div class="charts-grid">
                     <div class="chart-card">
                         <div class="card-header">
-                            <h3><i class="fa-solid fa-chart-pie"></i> Protocol Breakdown (Wireshark/PyShark)</h3>
+                            <h3><i class="fa-solid fa-chart-pie"></i> Exam Traffic Protocol Breakdown (PyShark/Wireshark)</h3>
                         </div>
                         <div class="chart-wrapper">
                             <canvas id="overviewProtocolChart"></canvas>
@@ -129,7 +134,7 @@
                     </div>
                     <div class="chart-card">
                         <div class="card-header">
-                            <h3><i class="fa-solid fa-chart-column"></i> Discovered Open Ports (Nmap)</h3>
+                            <h3><i class="fa-solid fa-chart-column"></i> Discovered Network Services & Ports (Nmap)</h3>
                         </div>
                         <div class="chart-wrapper">
                             <canvas id="overviewPortChart"></canvas>
@@ -142,15 +147,15 @@
             <section id="module1" class="tab-content">
                 <div class="section-header">
                     <div>
-                        <h2>Module 1: Network Discovery (Nmap Automation)</h2>
-                        <p class="section-desc">Folder: <code>module1_network_discovery/</code> • Discovers active hosts, OS, TCP ports, running services, and service versions.</p>
+                        <h2>Module 1: Examination Environment Verification (Nmap Scanner)</h2>
+                        <p class="section-desc">Folder: <code>module1_network_discovery/</code> • Verifies candidate network environment for active hosts, open proxy/unnecessary ports, and running services.</p>
                     </div>
                     <div class="action-group">
                         <a href="/download/module1_network_discovery/scan_results.csv" class="btn btn-outline">
                             <i class="fa-solid fa-file-csv"></i> Download CSV
                         </a>
                         <button class="btn btn-primary" onclick="triggerNmapScan()">
-                            <i class="fa-solid fa-play"></i> Run Nmap Scan
+                            <i class="fa-solid fa-play"></i> Run Environment Check
                         </button>
                     </div>
                 </div>
@@ -161,7 +166,7 @@
                     <div class="m1-hud-card">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem;">
                             <h3 style="font-size: 0.95rem; color: var(--accent-cyan); font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                                <span class="m1-step-num">STEP 1</span> Interface Subnet Auto-Discovery
+                                <span class="m1-step-num">STEP 1</span> Candidate Subnet Auto-Discovery
                             </h3>
                             <div style="display: flex; gap: 0.4rem;">
                                 <button class="btn btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="viewRawIpconfig()">
@@ -187,7 +192,7 @@
                                 <span class="m1-metric-value" id="net-mask">Detecting...</span>
                             </div>
                             <div class="m1-metric-box" style="border-color: rgba(0, 242, 254, 0.3);">
-                                <span class="m1-metric-label"><i class="fa-solid fa-crosshairs"></i> Target Subnet</span>
+                                <span class="m1-metric-label"><i class="fa-solid fa-crosshairs"></i> Exam Target Subnet</span>
                                 <span class="m1-metric-value" id="net-cidr" style="color: var(--accent-yellow);">Detecting...</span>
                             </div>
                         </div>
@@ -197,7 +202,7 @@
                     <div class="m1-hud-card">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem;">
                             <h3 style="font-size: 0.95rem; color: #fff; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fa-solid fa-sliders" style="color:var(--accent-cyan);"></i> Target Target Configuration
+                                <i class="fa-solid fa-sliders" style="color:var(--accent-cyan);"></i> Exam Target Configuration
                             </h3>
                             <span class="badge badge-info" style="font-size: 0.75rem;">Interactive HUD</span>
                         </div>
@@ -216,9 +221,9 @@
                             </div>
 
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                                <label for="discoveredIpSelect" style="font-size: 0.82rem; font-weight: 600; color: #fff;">Discovered Active Target Host:</label>
+                                <label for="discoveredIpSelect" style="font-size: 0.82rem; font-weight: 600; color: #fff;">Discovered Candidate Target Device:</label>
                                 <select id="discoveredIpSelect" class="form-control" style="width: 100%; padding: 0.55rem 0.75rem; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;" onchange="document.getElementById('targetSubnet').value = this.value">
-                                    <option value="">(Run Step 2 Ping Sweep to discover active hosts)</option>
+                                    <option value="">(Run Step 2 Ping Sweep to discover active devices)</option>
                                 </select>
                             </div>
                         </div>
@@ -228,7 +233,7 @@
                 <!-- 6-Step Command Pipeline Matrix -->
                 <div style="margin-bottom: 0.75rem;">
                     <h3 style="font-size: 1rem; color: #fff; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fa-solid fa-list-check" style="color: var(--accent-cyan);"></i> Nmap Command Sequence Pipeline
+                        <i class="fa-solid fa-list-check" style="color: var(--accent-cyan);"></i> Exam Verification Sequence Pipeline
                     </h3>
                     
                     <div class="m1-steps-grid">
@@ -238,8 +243,8 @@
                                 <span class="m1-step-num">STEP 2</span>
                                 <i class="fa-solid fa-radar m1-step-icon"></i>
                             </div>
-                            <div class="m1-step-title">Network Ping Sweep</div>
-                            <div class="m1-step-desc">Scans subnet (nmap -sn -PR) to discover all active online hosts via ARP ping sweep.</div>
+                            <div class="m1-step-title">Exam Subnet Ping Sweep</div>
+                            <div class="m1-step-desc">Scans subnet (nmap -sn -PR) to discover active online candidate devices via ARP ping sweep.</div>
                             <button class="btn btn-primary m1-step-btn" onclick="executeNmapCmd('ping_sweep')">
                                 <i class="fa-solid fa-play"></i> Run Ping Sweep (-sn -PR)
                             </button>
@@ -251,7 +256,7 @@
                                 <span class="m1-step-num">STEP 3</span>
                                 <i class="fa-solid fa-search m1-step-icon"></i>
                             </div>
-                            <div class="m1-step-title">Basic TCP Port Scan</div>
+                            <div class="m1-step-title">Basic Port Scan</div>
                             <div class="m1-step-desc">Scans selected target host to identify open TCP ports & active listening endpoints.</div>
                             <button class="btn btn-secondary m1-step-btn" onclick="executeNmapCmd('basic_scan')">
                                 <i class="fa-solid fa-play"></i> Run Basic Port Scan
@@ -278,7 +283,7 @@
                                 <i class="fa-solid fa-desktop m1-step-icon"></i>
                             </div>
                             <div class="m1-step-title">OS Fingerprinting</div>
-                            <div class="m1-step-desc">Analyzes TCP/IP stack responses (nmap -O) to fingerprint remote OS & kernel version.</div>
+                            <div class="m1-step-desc">Analyzes TCP/IP stack responses (nmap -O) to fingerprint remote candidate device OS.</div>
                             <button class="btn btn-secondary m1-step-btn" onclick="executeNmapCmd('os_scan')">
                                 <i class="fa-solid fa-play"></i> OS Fingerprint (-O)
                             </button>
@@ -290,7 +295,7 @@
                                 <span class="m1-step-num" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color:#fff;">STEP 6</span>
                                 <i class="fa-solid fa-bolt m1-step-icon" style="color: var(--accent-yellow);"></i>
                             </div>
-                            <div class="m1-step-title" style="color: var(--accent-yellow);">Aggressive Security Audit</div>
+                            <div class="m1-step-title" style="color: var(--accent-yellow);">Full Exam Security Audit</div>
                             <div class="m1-step-desc">Full audit (nmap -A): OS detection, service versions, NSE script scan & traceroute.</div>
                             <button class="btn btn-warning m1-step-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); border: none; color: #fff; font-weight: 700;" onclick="executeNmapCmd('aggressive_scan')">
                                 <i class="fa-solid fa-bolt"></i> Aggressive Audit (-A)
@@ -304,7 +309,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span style="font-size: 0.88rem; font-weight: 600; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
                             <i class="fa-solid fa-circle-notch fa-spin" id="scanSpinner" style="display:none; color:#00f2fe;"></i>
-                            <span id="scanStatusTitle">Scan Idle / Ready</span>
+                            <span id="scanStatusTitle">Exam Verification Ready</span>
                         </span>
                         <span class="badge badge-info" id="scanPercentBadge" style="font-size: 0.82rem; font-weight: 700; background: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid rgba(0, 242, 254, 0.3);">0.0%</span>
                     </div>
@@ -316,7 +321,7 @@
                 <!-- Nmap Terminal Execution Output Console -->
                 <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 255, 102, 0.2);">
                     <div class="table-header" style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-                        <h3 style="color:#00ff66;"><i class="fa-solid fa-terminal"></i> Live Terminal CLI Execution Stream</h3>
+                        <h3 style="color:#00ff66;"><i class="fa-solid fa-terminal"></i> Live Nmap CLI Exam Verification Stream</h3>
                         <div>
                             <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="navigator.clipboard.writeText(document.getElementById('nmapTerminalConsole').textContent); showToast('Terminal log copied!');">
                                 <i class="fa-regular fa-copy"></i> Copy Terminal Output
@@ -331,7 +336,7 @@
                 <div class="table-card margin-bottom-lg" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 242, 254, 0.25);">
                     <div class="table-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); justify-content: space-between;">
                         <h3 style="color:var(--accent-cyan); display:flex; align-items:center; gap:0.5rem; font-size: 1rem;">
-                            <i class="fa-solid fa-clock-rotate-left"></i> Command Execution History Log Archive
+                            <i class="fa-solid fa-clock-rotate-left"></i> Exam Command Execution Log Archive
                         </h3>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
                             <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="loadCommandHistory()">
@@ -370,8 +375,8 @@
             <section id="module2" class="tab-content">
                 <div class="section-header">
                     <div>
-                        <h2>Module 2: Real-Time Packet Capture &amp; Analysis</h2>
-                        <p class="section-desc">Folder: <code>module2_packet_capture/</code> &bull; Live capture via Scapy &bull; TCP 3-way handshake &bull; DNS &bull; HTTPS/TLS &bull; ICMP &bull; QUIC</p>
+                        <h2>Module 2: Examination Network Traffic Monitoring (Real-Time Packet Capture)</h2>
+                        <p class="section-desc">Folder: <code>module2_packet_capture/</code> • Live traffic monitoring via Scapy & SocketIO • TCP 3-way handshake • DNS queries • HTTPS/TLS • ICMP • QUIC</p>
                     </div>
                     <div class="action-group">
                         <a id="m2-download-json" href="/download/module2_packet_capture/packet_analysis.json" class="btn btn-outline">
@@ -381,7 +386,7 @@
                             <i class="fa-solid fa-file-csv"></i> CSV
                         </a>
                         <button class="btn btn-primary" id="m2-export-btn" onclick="m2ExportCapture()">
-                            <i class="fa-solid fa-floppy-disk"></i> Save Export
+                            <i class="fa-solid fa-floppy-disk"></i> Export Exam Traffic
                         </button>
                     </div>
                 </div>
@@ -389,18 +394,18 @@
                 <!-- Capture Controls -->
                 <div class="control-card" style="margin-bottom:1.5rem;">
                     <div class="input-group" style="flex-wrap:wrap; gap:0.75rem; align-items:center;">
-                        <label for="m2-iface-select" style="white-space:nowrap;"><i class="fa-solid fa-ethernet"></i> Interface:</label>
+                        <label for="m2-iface-select" style="white-space:nowrap;"><i class="fa-solid fa-ethernet"></i> Candidate Interface:</label>
                         <select id="m2-iface-select" class="form-control" style="min-width:180px; flex:1;">
-                            <option value="">Loading interfaces...</option>
+                            <option value="">Loading network interfaces...</option>
                         </select>
                         <button class="btn btn-primary" id="m2-start-btn" onclick="m2StartCapture()">
-                            <i class="fa-solid fa-circle-play"></i> START CAPTURE
+                            <i class="fa-solid fa-circle-play"></i> START EXAM MONITORING
                         </button>
                         <button class="btn btn-warning" id="m2-stop-btn" onclick="m2StopCapture()" disabled>
-                            <i class="fa-solid fa-circle-stop"></i> STOP
+                            <i class="fa-solid fa-circle-stop"></i> STOP MONITORING
                         </button>
                         <button class="btn btn-secondary" id="m2-clear-btn" onclick="m2ClearCapture()">
-                            <i class="fa-solid fa-trash"></i> CLEAR
+                            <i class="fa-solid fa-trash"></i> CLEAR STREAM
                         </button>
                     </div>
                     <div class="scan-meta" style="margin-top:0.75rem; display:flex; gap:2rem; align-items:center; flex-wrap:wrap;">
@@ -416,7 +421,7 @@
                 <!-- Live Statistics Bar -->
                 <div class="table-card" style="margin-bottom:1.5rem;">
                     <div class="table-header">
-                        <h3><i class="fa-solid fa-chart-bar"></i> Live Statistics</h3>
+                        <h3><i class="fa-solid fa-chart-bar"></i> Live Exam Traffic Statistics</h3>
                         <span class="badge badge-m2" id="m2-total-badge">0 Packets</span>
                     </div>
                     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:1rem; padding:1rem 1.25rem;">
@@ -458,7 +463,7 @@
                 <!-- Live Packets Table -->
                 <div class="table-card" style="margin-bottom:1.5rem;">
                     <div class="table-header">
-                        <h3><i class="fa-solid fa-wave-square"></i> Live Packets</h3>
+                        <h3><i class="fa-solid fa-wave-square"></i> Monitored Exam Session Packets Stream</h3>
                         <div style="display:flex;gap:0.5rem;align-items:center;">
                             <span class="badge badge-info" id="packet-count-badge">0 Packets</span>
                             <span style="font-size:0.75rem;color:#6b7280;">(showing latest 500)</span>
@@ -481,7 +486,7 @@
                             </thead>
                             <tbody id="packetsTableBody">
                                 <tr id="m2-empty-row">
-                                    <td colspan="9" style="text-align:center;color:#6b7280;padding:2rem;">Start capture to see live packets</td>
+                                    <td colspan="9" style="text-align:center;color:#6b7280;padding:2rem;">Start exam monitoring to view live packets stream</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -494,21 +499,21 @@
                     <!-- TCP Handshakes -->
                     <div class="table-card">
                         <div class="table-header">
-                            <h3><i class="fa-solid fa-handshake"></i> TCP Handshakes</h3>
+                            <h3><i class="fa-solid fa-handshake"></i> Exam Client TCP Handshakes</h3>
                             <span class="badge badge-info" id="m2-hs-count">0</span>
                         </div>
                         <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
                             <table class="data-table">
                                 <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
                                     <tr>
-                                        <th>Client</th>
-                                        <th>Server</th>
+                                        <th>Exam Client</th>
+                                        <th>Exam Server</th>
                                         <th>Port</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody id="m2-handshakes-body">
-                                    <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:1.5rem;">No handshakes yet</td></tr>
+                                    <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:1.5rem;">No handshakes logged yet</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -517,7 +522,7 @@
                     <!-- DNS Queries -->
                     <div class="table-card">
                         <div class="table-header">
-                            <h3><i class="fa-solid fa-globe"></i> DNS Queries</h3>
+                            <h3><i class="fa-solid fa-globe"></i> Exam Session DNS Lookups</h3>
                             <span class="badge badge-info" id="m2-dns-count">0</span>
                         </div>
                         <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
@@ -532,7 +537,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="m2-dns-body">
-                                    <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:1.5rem;">No DNS queries yet</td></tr>
+                                    <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:1.5rem;">No DNS lookups logged yet</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -542,7 +547,7 @@
                 <!-- ICMP Statistics -->
                 <div class="table-card" style="margin-bottom:1.5rem;">
                     <div class="table-header">
-                        <h3><i class="fa-solid fa-network-wired"></i> ICMP Statistics</h3>
+                        <h3><i class="fa-solid fa-network-wired"></i> ICMP Ping Traffic Statistics</h3>
                         <span class="badge badge-info" id="m2-icmp-total">0</span>
                     </div>
                     <div style="display:flex;gap:2rem;padding:1rem 1.25rem;flex-wrap:wrap;">
@@ -563,24 +568,24 @@
 
                 <!-- TCP 3-Way Handshake Educator -->
                 <div class="handshake-card">
-                    <h3><i class="fa-solid fa-diagram-project"></i> TCP 3-Way Handshake Reference</h3>
+                    <h3><i class="fa-solid fa-diagram-project"></i> Exam Client TCP Connection Reference</h3>
                     <div class="handshake-steps">
                         <div class="step-box">
                             <span class="step-num">Step 1</span>
                             <h4>SYN Sent</h4>
-                            <p>Client &rarr; Server [SYN] Seq=0</p>
+                            <p>Exam Client &rarr; Server [SYN] Seq=0</p>
                         </div>
                         <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
                         <div class="step-box">
                             <span class="step-num">Step 2</span>
                             <h4>SYN-ACK Received</h4>
-                            <p>Server &rarr; Client [SYN, ACK] Seq=0 Ack=1</p>
+                            <p>Server &rarr; Exam Client [SYN, ACK] Seq=0 Ack=1</p>
                         </div>
                         <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
                         <div class="step-box">
                             <span class="step-num">Step 3</span>
                             <h4>ACK Sent</h4>
-                            <p>Client &rarr; Server [ACK] Seq=1 Ack=1 (Established)</p>
+                            <p>Exam Client &rarr; Server [ACK] Seq=1 Ack=1 (Established)</p>
                         </div>
                     </div>
                 </div>
@@ -590,18 +595,18 @@
             <section id="module3" class="tab-content">
                 <div class="section-header">
                     <div>
-                        <h2>Module 3: MAC Address Spoofing & Privacy Testing (SMAC)</h2>
-                        <p class="section-desc">Folder: <code>module3_mac_spoofing/</code> • View, change, restart adapter, verify, and restore network hardware addresses.</p>
+                        <h2>Module 3: Candidate Device Verification (MAC Identity Audit)</h2>
+                        <p class="section-desc">Folder: <code>module3_mac_spoofing/</code> • Verifies candidate examination device network identity. Detects unexpected MAC address changes or spoofing attempts.</p>
                     </div>
                 </div>
 
                 <div class="mac-control-grid">
                     <!-- Control Panel Card -->
                     <div class="mac-card">
-                        <h3><i class="fa-solid fa-sliders"></i> MAC Spoofing Control Panel</h3>
+                        <h3><i class="fa-solid fa-sliders"></i> Candidate Device Identity Panel</h3>
                         
                         <div class="form-group">
-                            <label for="adapterSelect">Target Network Adapter:</label>
+                            <label for="adapterSelect">Candidate Network Adapter:</label>
                             <select id="adapterSelect" class="form-control">
                                 <option value="Wi-Fi">Wi-Fi Adapter</option>
                                 <option value="Ethernet">Ethernet Adapter</option>
@@ -610,7 +615,7 @@
 
                         <div class="mac-info-box">
                             <div class="mac-row">
-                                <span>Original Hardware MAC:</span>
+                                <span>Verified Baseline MAC:</span>
                                 <strong id="origMacDisplay">F4:6D:04:88:99:AA</strong>
                             </div>
                             <div class="mac-row">
@@ -618,13 +623,13 @@
                                 <strong id="currMacDisplay" class="highlight-mac">F4:6D:04:88:99:AA</strong>
                             </div>
                             <div class="mac-row">
-                                <span>Spoofing Status:</span>
-                                <span id="spoofStatusBadge" class="status-badge normal">Original MAC Active</span>
+                                <span>Device Identity Status:</span>
+                                <span id="spoofStatusBadge" class="status-badge normal">Candidate MAC Verified</span>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label for="newMacInput">New MAC Address:</label>
+                            <label for="newMacInput">Simulated Device MAC Address:</label>
                             <div class="input-with-btn">
                                 <input type="text" id="newMacInput" placeholder="e.g. 02:AB:CD:12:34:56" class="form-control">
                                 <button class="btn btn-secondary" onclick="generateRandomMacInInput()">
@@ -635,17 +640,17 @@
 
                         <div class="btn-group-stacked">
                             <button class="btn btn-primary btn-block" onclick="executeChangeMac()">
-                                <i class="fa-solid fa-bolt"></i> Change MAC & Restart Adapter
+                                <i class="fa-solid fa-bolt"></i> Simulate MAC Change & Audit
                             </button>
                             <button class="btn btn-warning btn-block" onclick="executeRestoreMac()">
-                                <i class="fa-solid fa-rotate-left"></i> Restore Original MAC Address
+                                <i class="fa-solid fa-rotate-left"></i> Restore Verified Candidate MAC
                             </button>
                         </div>
                     </div>
 
                     <!-- MAC Activity Log Card -->
                     <div class="mac-card">
-                        <h3><i class="fa-solid fa-list-check"></i> MAC Spoofing Activity & Audit Log</h3>
+                        <h3><i class="fa-solid fa-list-check"></i> Candidate Device Verification & Audit Log</h3>
                         <div class="table-responsive log-scroll">
                             <table class="data-table">
                                 <thead>
@@ -670,19 +675,66 @@
             <section id="phase4" class="tab-content">
                 <div class="section-header">
                     <div>
-                        <h2>Phase 4: Security Assessment & Hardening Recommendations</h2>
-                        <p class="section-desc">Identifies unnecessary open ports, unencrypted protocols, generates Windows Defender Firewall rules, and security improvements.</p>
+                        <h2>Phase 4: Examination Security Assessment & Firewall Enforcement</h2>
+                        <p class="section-desc">Identifies prohibited ports (RDP 3389, FTP 21, Telnet 23), unencrypted protocols, and generates Windows Defender Firewall rules to enforce exam network restrictions.</p>
                     </div>
                     <button class="btn btn-primary" onclick="triggerSecurityAudit()">
-                        <i class="fa-solid fa-shield-virus"></i> Re-Analyze Security Posture
+                        <i class="fa-solid fa-shield-virus"></i> Re-Analyze Exam Security Posture
                     </button>
+                </div>
+
+                <!-- Candidate False Attempts & Cheating Incidents Audit Log -->
+                <div class="sec-card margin-bottom-lg" style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.25); margin-bottom: 1.5rem;">
+                    <div class="sec-card-header red" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3><i class="fa-solid fa-user-ninja"></i> Live Candidate False Attempts & Cheating Violations Log</h3>
+                        <div style="display:flex; gap:0.5rem;">
+                            <span class="badge badge-danger" id="sec-total-violations-badge">0 Violations</span>
+                            <button class="btn btn-outline" style="padding:0.25rem 0.65rem; font-size:0.75rem; border-color:rgba(239,68,68,0.4); color:#ef4444;" onclick="clearExamViolations()">
+                                <i class="fa-solid fa-trash-can"></i> Clear Violations
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:1.5rem; padding:0.85rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; background:rgba(0,0,0,0.2);">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.8rem; color:#9ca3af;">Total Attempts Flagged:</span>
+                            <strong style="font-size:1rem; color:#fff;" id="sec-stat-total-v">0</strong>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.8rem; color:#9ca3af;">Critical Remote Access Attempts:</span>
+                            <strong style="font-size:1rem; color:#ef4444;" id="sec-stat-crit-v">0</strong>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.8rem; color:#9ca3af;">Prohibited Port & DNS Probes:</span>
+                            <strong style="font-size:1rem; color:#f59e0b;" id="sec-stat-other-v">0</strong>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+                        <table class="data-table">
+                            <thead style="position:sticky; top:0; z-index:2; background:#111827;">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Candidate ID & IP</th>
+                                    <th>Attempt / Violation Type</th>
+                                    <th>Target Port</th>
+                                    <th>Risk Level</th>
+                                    <th>Cheating Incident Details</th>
+                                    <th>Proctor Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="examViolationsTableBody">
+                                <tr><td colspan="7" style="text-align:center; color:#6b7280; padding:2rem;">No candidate false attempts or security violations logged yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- Vulnerable Ports & Insecure Protocols Row -->
                 <div class="sec-grid">
                     <div class="sec-card">
                         <div class="sec-card-header red">
-                            <h3><i class="fa-solid fa-triangle-exclamation"></i> Unnecessary / Risky Open Ports</h3>
+                            <h3><i class="fa-solid fa-triangle-exclamation"></i> Prohibited / Cheating-Risk Open Ports</h3>
                         </div>
                         <div class="table-responsive">
                             <table class="data-table">
@@ -692,7 +744,7 @@
                                         <th>Port #</th>
                                         <th>Service</th>
                                         <th>Risk Level</th>
-                                        <th>Vulnerability Rationale</th>
+                                        <th>Exam Security Rationale</th>
                                     </tr>
                                 </thead>
                                 <tbody id="riskyPortsTableBody">
@@ -704,7 +756,7 @@
 
                     <div class="sec-card">
                         <div class="sec-card-header yellow">
-                            <h3><i class="fa-solid fa-lock-open"></i> Insecure Protocols Identified</h3>
+                            <h3><i class="fa-solid fa-lock-open"></i> Insecure Exam Protocols Identified</h3>
                         </div>
                         <div id="insecureProtoContainer" class="proto-container">
                             <!-- Insecure protocols cards -->
@@ -715,7 +767,7 @@
                 <!-- Firewall Recommendations Section -->
                 <div class="sec-card margin-top-lg">
                     <div class="sec-card-header blue">
-                        <h3><i class="fa-solid fa-fire-burner"></i> Recommended Firewall Rules (Windows Defender & Linux ufw)</h3>
+                        <h3><i class="fa-solid fa-fire-burner"></i> Recommended Exam Firewall Rules (Windows Defender & Linux ufw)</h3>
                     </div>
                     <div id="firewallRulesContainer" class="firewall-container">
                         <!-- Firewall commands dynamic -->
@@ -725,7 +777,7 @@
                 <!-- Security Hardening Improvements -->
                 <div class="sec-card margin-top-lg">
                     <div class="sec-card-header green">
-                        <h3><i class="fa-solid fa-square-check"></i> Security Improvements & Actionable Checklist</h3>
+                        <h3><i class="fa-solid fa-square-check"></i> Exam Security Hardening Checklist</h3>
                     </div>
                     <div id="securityChecklistContainer" class="checklist-container">
                         <!-- Checklist dynamic -->
@@ -739,6 +791,8 @@
     <div id="toast" class="toast hidden"></div>
 
     <!-- Dashboard JS Script -->
-    <script src="/static/dashboard.js?v=25"></script>
+    <script src="/static/dashboard.js"></script>
 </body>
+</html>
+dy>
 </html>
