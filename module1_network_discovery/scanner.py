@@ -238,8 +238,8 @@ def run_single_nmap_command(cmd_type, target):
 
     # Build Nmap command array with --stats-every 1s
     if cmd_type == "ping_sweep":
-        base_cmd = ["nmap", "-sn", "--stats-every", "1s", "--min-rate", "300", target]
-        display_cmd = f"nmap -sn --stats-every 1s --min-rate 300 {target}"
+        base_cmd = ["nmap", "-sn", "-PR", "--stats-every", "1s", "--min-rate", "300", target]
+        display_cmd = f"nmap -sn -PR --stats-every 1s --min-rate 300 {target}"
     elif cmd_type == "basic_scan":
         base_cmd = ["nmap", "--stats-every", "1s", target]
         display_cmd = f"nmap --stats-every 1s {target}"
@@ -342,8 +342,8 @@ def stream_nmap_command_events(cmd_type, target):
     temp_xml_path = os.path.join(script_dir, "temp_stream_scan.xml")
 
     if cmd_type == "ping_sweep":
-        base_cmd = ["nmap", "-sn", "--stats-every", "1s", "--min-rate", "300", target]
-        display_cmd = f"nmap -sn --stats-every 1s --min-rate 300 {target}"
+        base_cmd = ["nmap", "-sn", "-PR", "--stats-every", "1s", "--min-rate", "300", target]
+        display_cmd = f"nmap -sn -PR --stats-every 1s --min-rate 300 {target}"
     elif cmd_type == "basic_scan":
         base_cmd = ["nmap", "--stats-every", "1s", target]
         display_cmd = f"nmap {target}"

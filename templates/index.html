@@ -14,8 +14,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css">
-    <!-- Socket.IO Client -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- Socket.IO Client (Local + CDN Fallback) -->
+    <script src="/static/socket.io.min.js"></script>
+    <script>if (typeof io === 'undefined') document.write('<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\/script>');</script>
 </head>
 <body>
     <!-- Top Navigation Header -->
@@ -238,9 +239,9 @@
                                 <i class="fa-solid fa-radar m1-step-icon"></i>
                             </div>
                             <div class="m1-step-title">Network Ping Sweep</div>
-                            <div class="m1-step-desc">Scans subnet (nmap -sn) to discover all active online hosts without port scanning.</div>
+                            <div class="m1-step-desc">Scans subnet (nmap -sn -PR) to discover all active online hosts via ARP ping sweep.</div>
                             <button class="btn btn-primary m1-step-btn" onclick="executeNmapCmd('ping_sweep')">
-                                <i class="fa-solid fa-play"></i> Run Ping Sweep (-sn)
+                                <i class="fa-solid fa-play"></i> Run Ping Sweep (-sn -PR)
                             </button>
                         </div>
 

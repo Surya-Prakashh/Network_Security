@@ -1,0 +1,12 @@
+Timestamp,Hostname,Adapter,MAC Address,Status,Action
+"10-Aug-2026 16:35:44","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","E4:60:17:04:99:44","ORIGINAL","Spoof MAC"
+"10-Aug-2026 16:36:35","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","E4:60:17:04:99:44","ORIGINAL","Spoof MAC"
+"10-Aug-2026 16:45:23","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","02:67:CA:5D:C5:A5","SPOOFED","Spoof MAC"
+"11-Aug-2026 19:48:08","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","02:F4:C2:4E:54:FA","SPOOFED","Spoof MAC"
+"11-Aug-2026 19:48:21","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","02:F4:C2:4E:54:FA","SPOOFED","Spoof MAC"
+"11-Aug-2026 19:48:27","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","02:F4:C2:4E:54:FA","SPOOFED","Restore MAC"
+"11-Aug-2026 19:49:03","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","E4:60:17:04:99:44","ORIGINAL","Spoof MAC"
+"11-Aug-2026 19:49:08","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","E4:60:17:04:99:44","ORIGINAL","Restore MAC"
+"11-Aug-2026 19:49:57","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","02:98:11:5D:02:A0","SPOOFED","Spoof MAC"
+"11-Aug-2026 19:51:29","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","02:BD:AA:A9:DF:8D","SPOOFED","Spoof MAC"
+"11-Aug-2026 19:52:58","SuryaPrakash","Intel(R) Wi-Fi 6 AX203","E4:60:17:04:99:44","ORIGINAL","Restore MAC"

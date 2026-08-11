@@ -1,7 +1,7 @@
 /* Dashboard Interactive Logic for CyberShield Suite */
 
 // ── Module 2 Real-Time SocketIO setup ────────────────────────────────────────
-const m2socket = io();
+const m2socket = (typeof io !== "undefined") ? io() : null;
 let m2PacketBuffer = [];        // Incoming packet queue (flushed to DOM every frame)
 let m2RowCount = 0;             // Total rows currently in the packet table
 let m2TotalCount = 0;           // All-time packet counter
@@ -499,6 +499,10 @@ function m2LoadInterfaces() {
 
 /** Register all SocketIO event listeners for Module 2. */
 function m2InitSocketHandlers() {
+    if (!m2socket) {
+        console.warn("Socket.IO client not loaded — live socket handlers skipped.");
+        return;
+    }
 
     // ── New packet arrives ────────────────────────────────────────────────
     m2socket.on("m2_packet", function(pkt) {

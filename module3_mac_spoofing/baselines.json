@@ -4,5 +4,11 @@
         "adapter": "RZ616 Wi-Fi 6E 160MHz",
         "original_mac": "60:E9:AA:F0:A2:C1",
         "first_detected": "10-Aug-2026 15:34:43"
+    },
+    "SuryaPrakash": {
+        "hostname": "SuryaPrakash",
+        "adapter": "Intel(R) Wi-Fi 6 AX203",
+        "original_mac": "E4:60:17:04:99:44",
+        "first_detected": "10-Aug-2026 16:35:10"
     }
 }
