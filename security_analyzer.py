@@ -1,38 +1,38 @@
 """
-Phase 4: Security Analysis Engine
-----------------------------------
-Evaluates scan data and packet captures to:
-1. Identify unnecessary or risky open ports.
-2. Flag insecure / unencrypted network protocols.
-3. Formulate specific Windows Defender Firewall and Linux ufw/iptables rules.
-4. Provide comprehensive security hardening recommendations.
+Phase 4: Online Examination Security Assessment Engine
+--------------------------------------------------------
+Evaluates scan data and packet captures in an online examination environment to:
+1. Identify unauthorized, unnecessary, or cheating-risk open ports (e.g. RDP 3389, FTP 21, Telnet 23).
+2. Flag insecure / unencrypted network protocols that risk exam content leakage.
+3. Formulate specific Windows Defender Firewall and Linux ufw rules to enforce exam network restrictions.
+4. Provide comprehensive security hardening recommendations for secure online exam monitoring.
 """
 
 import json
 import os
 import datetime
 
-# Known insecure/risky ports database
+# Known insecure / high-risk ports database for Online Examination Environment
 RISKY_PORTS_DB = {
-    21: {"service": "FTP", "risk": "High", "reason": "Transmits credentials and files in unencrypted cleartext."},
-    23: {"service": "Telnet", "risk": "Critical", "reason": "Transmits all login credentials and shell commands in plain text."},
-    80: {"service": "HTTP", "risk": "Medium", "reason": "Plaintext web traffic susceptible to eavesdropping and MITM attacks."},
-    135: {"service": "MSRPC", "risk": "Medium", "reason": "Windows RPC endpoint mapper often targeted for reconnaissance."},
-    139: {"service": "NetBIOS", "risk": "High", "reason": "Legacy NetBIOS Session Service prone to enumeration and spoofing."},
-    445: {"service": "SMB", "risk": "Critical", "reason": "Direct SMB port frequently targeted by WannaCry/EternalBlue exploits."},
-    3389: {"service": "RDP", "risk": "High", "reason": "Remote Desktop exposed without Network Level Authentication or VPN."}
+    21: {"service": "FTP", "risk": "High", "reason": "Transmits exam credentials and test files in unencrypted cleartext; high risk of exam paper leakage."},
+    23: {"service": "Telnet", "risk": "Critical", "reason": "Unencrypted remote command shell allowing unauthorized remote assistance or candidate computer manipulation during exams."},
+    80: {"service": "HTTP", "risk": "Medium", "reason": "Plaintext web traffic susceptible to eavesdropping and unencrypted exam content transmission."},
+    135: {"service": "MSRPC", "risk": "Medium", "reason": "Windows RPC endpoint mapper susceptible to network enumeration by secondary devices in the exam venue."},
+    139: {"service": "NetBIOS", "risk": "High", "reason": "Legacy NetBIOS Session Service prone to local candidate machine discovery and unauthorized session hijacking."},
+    445: {"service": "SMB", "risk": "Critical", "reason": "Direct file sharing port frequently targeted by network exploits or unauthorized peer-to-peer exam answer sharing."},
+    3389: {"service": "RDP", "risk": "Critical", "reason": "Remote Desktop Protocol active; critical risk of candidate impersonation or unauthorized third-party remote assistance during the exam."}
 }
 
 INSECURE_PROTOCOLS_DB = {
-    "HTTP": {"severity": "Medium", "mitigation": "Migrate to HTTPS with TLS 1.3 encryption and HSTS headers."},
-    "TELNET": {"severity": "Critical", "mitigation": "Disable Telnet daemon completely and use OpenSSH (Port 22)."},
-    "FTP": {"severity": "High", "mitigation": "Replace FTP with SFTP (SSH File Transfer Protocol) or FTPS."},
-    "DNS": {"severity": "Low", "mitigation": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent spoofing/poisoning."}
+    "HTTP": {"severity": "Medium", "mitigation": "Migrate exam client web traffic to HTTPS with TLS 1.3 encryption and HSTS headers."},
+    "TELNET": {"severity": "Critical", "mitigation": "Disable Telnet daemon completely to prevent unauthorized remote shell access during exams."},
+    "FTP": {"severity": "High", "mitigation": "Replace plain FTP with secure SFTP (SSH File Transfer Protocol) for exam question/answer uploads."},
+    "DNS": {"severity": "Low", "mitigation": "Implement DNS-over-HTTPS (DoH) or DNSSEC to prevent DNS spoofing and unauthorized domain redirects."}
 }
 
 
 def analyze_security_posture(scan_file=None, packet_file=None):
-    """Performs Phase 4 Security Analysis on discovered network assets."""
+    """Performs Phase 4 Security Assessment on candidate examination environment."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
     if not scan_file:
@@ -62,7 +62,7 @@ def analyze_security_posture(scan_file=None, packet_file=None):
     recommended_firewall_rules = []
     security_recommendations = []
 
-    # Analyze hosts and ports from Phase 1
+    # Analyze hosts and ports from Phase 1 (Exam Environment Verification)
     hosts = scan_data.get("hosts", [])
     for host in hosts:
         ip = host.get("ip", "Unknown")
@@ -82,48 +82,48 @@ def analyze_security_posture(scan_file=None, packet_file=None):
                 })
                 insecure_protocols.add(info["service"].upper())
 
-                # Generate specific firewall rules
-                win_cmd = f'netsh advfirewall firewall add rule name="Block Insecure Port {p} ({info["service"]})" dir=in action=block protocol=TCP localport={p}'
-                linux_cmd = f'sudo ufw deny in proto tcp to any port {p} comment "Block {info["service"]}"'
+                # Generate specific firewall enforcement rules for exam security
+                win_cmd = f'netsh advfirewall firewall add rule name="Exam Security Block Port {p} ({info["service"]})" dir=in action=block protocol=TCP localport={p}'
+                linux_cmd = f'sudo ufw deny in proto tcp to any port {p} comment "Exam Security Block {info["service"]}"'
                 recommended_firewall_rules.append({
                     "target_ip": ip,
                     "port": p,
                     "service": info["service"],
                     "windows_firewall_cmd": win_cmd,
                     "linux_ufw_cmd": linux_cmd,
-                    "rationale": f"Block unnecessary port {p} ({info['service']}) on {ip} to prevent unauthorized exploitation."
+                    "rationale": f"Block prohibited port {p} ({info['service']}) on {ip} to isolate the exam environment and prevent remote cheating/assistance."
                 })
 
-    # Analyze traffic from Phase 2
+    # Analyze traffic from Phase 2 (Exam Network Traffic Monitoring)
     for p in packet_data.get("packets", []):
         proto = p.get("protocol", "").upper()
         if proto in INSECURE_PROTOCOLS_DB:
             insecure_protocols.add(proto)
 
-    # Formulate security hardening recommendations
+    # Formulate security hardening recommendations for examination environment
     for proto in insecure_protocols:
         if proto in INSECURE_PROTOCOLS_DB:
             info = INSECURE_PROTOCOLS_DB[proto]
             security_recommendations.append({
-                "category": f"Insecure Protocol: {proto}",
+                "category": f"Insecure Exam Protocol: {proto}",
                 "severity": info["severity"],
-                "finding": f"Detected plain-text {proto} traffic across network.",
+                "finding": f"Detected unencrypted plain-text {proto} traffic during exam session.",
                 "action_item": info["mitigation"]
             })
 
-    # General recommendations
+    # General exam security recommendations
     security_recommendations.extend([
         {
-            "category": "Network Segmentation & Isolation",
+            "category": "Exam Environment Network Isolation",
             "severity": "High",
-            "finding": "Management devices and IoT cameras share the same subnet as workstations.",
-            "action_item": "Isolate IoT devices and IP cameras onto a dedicated VLAN with strict inter-VLAN firewall routing."
+            "finding": "Candidate examination workstation shares the subnet with unmonitored local network devices.",
+            "action_item": "Isolate candidate exam devices onto a dedicated Exam VLAN with strict inter-VLAN firewall routing during testing."
         },
         {
-            "category": "MAC Address Privacy & Spoofing Defense",
+            "category": "Candidate Device Verification & MAC Anti-Spoofing",
             "severity": "Medium",
-            "finding": "Static MAC filtering is vulnerable to MAC address spoofing (Phase 3 testing).",
-            "action_item": "Enforce 802.1X Port-Based Network Access Control (NAC) instead of relying solely on MAC filtering."
+            "finding": "Static MAC identity checks are vulnerable to device impersonation via MAC address spoofing (Phase 3 audit).",
+            "action_item": "Enforce 802.1X Port-Based Network Access Control (NAC) alongside candidate hardware MAC verification."
         }
     ])
 
@@ -148,10 +148,11 @@ def analyze_security_posture(scan_file=None, packet_file=None):
     report_path = os.path.join(script_dir, "security_analysis_report.json")
     with open(report_path, "w") as f:
         json.dump(report, f, indent=4)
-    print(f"[+] Security Analysis Report generated: {report_path}")
+    print(f"[+] Online Examination Security Assessment Report generated: {report_path}")
 
     return report
 
 
 if __name__ == "__main__":
     analyze_security_posture()
+

@@ -1,4 +1,4 @@
-/* Dashboard Interactive Logic for CyberShield Suite */
+/* Dashboard Interactive Logic for Secure Online Examination Monitoring System */
 
 // ── Module 2 Real-Time SocketIO setup ────────────────────────────────────────
 const m2socket = (typeof io !== "undefined") ? io() : null;
@@ -60,7 +60,7 @@ function showToast(message, type = "info") {
 
 // Global Refresh
 function refreshAllData() {
-    showToast("Refreshing all module assessment data...");
+    showToast("Refreshing exam monitoring data...");
     loadOverviewData();
     loadModule1Data();
     loadModule2Data();
@@ -75,14 +75,22 @@ function loadOverviewData() {
         .then(data => {
             document.getElementById("kpi-hosts").textContent = data.total_hosts || 0;
             document.getElementById("kpi-packets").textContent = data.total_packets || 0;
+
+            if (data.candidate_url) {
+                const headerUrl = document.getElementById("headerCandidateUrl");
+                if (headerUrl) {
+                    headerUrl.href = data.candidate_url;
+                    headerUrl.textContent = data.candidate_url;
+                }
+            }
             
             const mac = data.mac_status || {};
-            document.getElementById("kpi-mac-status").textContent = mac.is_spoofed ? "SPOOFED" : "NORMAL";
+            document.getElementById("kpi-mac-status").textContent = mac.is_spoofed ? "SUSPICIOUS" : "VERIFIED";
             document.getElementById("kpi-mac-addr").textContent = mac.current_mac || "N/A";
             
             const sec = data.security_summary || {};
             document.getElementById("kpi-sec-score").textContent = `${sec.security_score || 85} / 100`;
-            document.getElementById("kpi-vuln-count").textContent = `${sec.unnecessary_open_ports_count || 0} Open Vulnerable Ports`;
+            document.getElementById("kpi-vuln-count").textContent = `${sec.unnecessary_open_ports_count || 0} Prohibited Open Ports`;
 
             renderProtocolChart(data.protocol_summary || {});
         })
@@ -144,7 +152,7 @@ function renderPortChart(hostsData) {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Occurrences Across Hosts',
+                label: 'Occurrences Across Exam Subnet',
                 data: values,
                 backgroundColor: '#06b6d4',
                 borderRadius: 6
@@ -163,6 +171,7 @@ function renderPortChart(hostsData) {
         }
     });
 }
+
 
 // TAB 2: Module 1 Network Discovery
 let currentNetInfo = null;
@@ -860,10 +869,10 @@ function loadModule3Data() {
             
             const badge = document.getElementById("spoofStatusBadge");
             if (log.is_spoofed) {
-                badge.textContent = "MAC Spoofed";
+                badge.textContent = "Suspicious MAC Change";
                 badge.className = "status-badge spoofed";
             } else {
-                badge.textContent = "Original MAC Active";
+                badge.textContent = "Candidate MAC Verified";
                 badge.className = "status-badge normal";
             }
 

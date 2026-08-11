@@ -43,6 +43,69 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/candidate")
+def candidate_portal():
+    """Renders the Candidate Online Examination Portal for System 2."""
+    return render_template("candidate.html")
+
+
+@app.route("/api/candidate/ping", methods=["POST"])
+def candidate_ping():
+    """Telemetry endpoint called when a candidate device connects to the exam."""
+    data = request.json or {}
+    client_ip = request.remote_addr
+    return jsonify({
+        "status": "connected",
+        "candidate_ip": client_ip,
+        "session_id": data.get("candidate_id", "CANDIDATE-8821"),
+        "exam_subject": "Computer Networks & Security",
+        "message": "Candidate device registered on Proctor Server."
+    })
+
+
+@app.route("/api/candidate/simulate-threat", methods=["POST"])
+def candidate_simulate_threat():
+    """Demonstration endpoint triggered from Candidate Portal to simulate cheating behavior."""
+    data = request.json or {}
+    threat_type = data.get("threat_type", "rdp")
+    candidate_id = data.get("candidate_id", "CANDIDATE-8821")
+    client_ip = request.remote_addr
+
+    log_entry = {
+        "candidate_id": candidate_id,
+        "client_ip": client_ip,
+        "threat_type": threat_type
+    }
+
+    if threat_type == "rdp":
+        log_entry["detail"] = f"Candidate {candidate_id} ({client_ip}) attempted Remote Desktop Connection (Port 3389 RDP)."
+        log_entry["risk"] = "CRITICAL"
+    elif threat_type == "ftp":
+        log_entry["detail"] = f"Candidate {candidate_id} ({client_ip}) attempted Unencrypted File Transfer (Port 21 FTP)."
+        log_entry["risk"] = "HIGH"
+    elif threat_type == "dns":
+        log_entry["detail"] = f"Candidate {candidate_id} ({client_ip}) attempted DNS lookup to prohibited domain: cheating-answers.com"
+        log_entry["risk"] = "MEDIUM"
+    else:
+        log_entry["detail"] = f"Candidate {candidate_id} ({client_ip}) performed unexpected network probe."
+        log_entry["risk"] = "INFO"
+
+    # Emit socketio event if active
+    socketio.emit("m2_packet", {
+        "id": 9999,
+        "timestamp": os.getenv("TIME", "Now"),
+        "src_ip": client_ip,
+        "dst_ip": "192.168.1.1",
+        "protocol": threat_type.upper(),
+        "source_port": 54321,
+        "destination_port": 3389 if threat_type == "rdp" else (21 if threat_type == "ftp" else 53),
+        "length": 128,
+        "details": log_entry["detail"]
+    })
+
+    return jsonify({"ok": True, "log": log_entry})
+
+
 @app.route("/api/overview", methods=["GET"])
 def get_overview():
     """Returns aggregated stats from all 3 module outputs and security analysis."""
@@ -68,10 +131,14 @@ def get_overview():
 
     mac_log = load_mac_log()
 
+    net_info = get_network_interfaces_info()
+
     return jsonify({
         "total_hosts": scan_data.get("total_hosts_found", 0),
         "total_packets": packet_data.get("total_packets_captured", 0),
         "protocol_summary": packet_data.get("protocol_summary", {}),
+        "server_ip": net_info.get("local_ip", "127.0.0.1"),
+        "candidate_url": f"http://{net_info.get('local_ip', '127.0.0.1')}:5000/candidate",
         "mac_status": {
             "current_mac": mac_log.get("current_mac", "N/A"),
             "original_mac": mac_log.get("original_mac", "N/A"),
@@ -268,11 +335,15 @@ if __name__ == "__main__":
         run_single_nmap_command("service_scan", "127.0.0.1")
 
     analyze_security_posture()
+    net_info = get_network_interfaces_info()
+    local_ip = net_info.get("local_ip", "127.0.0.1")
 
-    print("\n=======================================================")
-    print("[*] Network Analysis & MAC Spoofing Dashboard Started!")
-    print("[*] Open Browser: http://127.0.0.1:5000")
-    print("[*] Module 2: Real-Time Packet Capture via SocketIO")
-    print("=======================================================\n")
-    # Use socketio.run() instead of app.run() to enable WebSocket support
-    socketio.run(app, host="127.0.0.1", port=5000, debug=False, allow_unsafe_werkzeug=True)
+    print("\n=======================================================================")
+    print("[*] SECURE ONLINE EXAMINATION MONITORING SERVER STARTED!")
+    print(f"[*] Proctor Dashboard (System 1) : http://127.0.0.1:5000 or http://{local_ip}:5000")
+    print(f"[*] Candidate Portal    (System 2) : http://{local_ip}:5000/candidate")
+    print("[*] Listening on all Wi-Fi network interfaces (0.0.0.0:5000)")
+    print("=======================================================================\n")
+    # Use socketio.run() bound to 0.0.0.0 to allow candidate connection over Wi-Fi
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
+

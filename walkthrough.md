@@ -1,86 +1,76 @@
-# Network Security Assessment & MAC Spoofing Suite — Complete Walkthrough
+# Secure Online Examination Monitoring System — Complete Walkthrough
 
-An end-to-end cybersecurity assessment tool built for network discovery, packet capture, MAC address spoofing, and security analysis. The codebase is organized into **3 distinct module folders** for team collaboration, topped by a central **Web Application Dashboard**.
+An end-to-end network security monitoring suite transformed for **Online Examination Monitoring**. The application leverages real-time Nmap scanning, Scapy packet dissection, SocketIO streaming, and candidate device MAC verification to ensure a secure exam environment.
 
 ---
 
-## 📁 Modular Project Structure
+## 🎓 Domain & Use Case Mapping
+
+| Existing Component / Folder | Online Examination Monitoring Domain Role | Key Functionality |
+| :--- | :--- | :--- |
+| **Module 1 (`module1_network_discovery/`)** | **Exam Environment Verification** | Scans candidate network for active hosts, open proxy/unnecessary ports, and unknown secondary devices. Streams live CLI output via SSE. |
+| **Module 2 (`module2_packet_capture/`)** | **Exam Network Traffic Monitoring** | Monitors live exam traffic via Socket.IO events (`m2_packet`, `m2_stats`, `m2_dns`, `m2_handshake`). Dissects TCP 3-way handshakes & DNS lookups. |
+| **Module 3 (`module3_mac_spoofing/`)** | **Candidate Device Verification** | Audits candidate hardware network MAC address. Detects identity tampering, unauthorized adapter changes, or MAC spoofing. |
+| **Phase 4 (`security_analyzer.py`)** | **Exam Security Assessment & Firewall Enforcement** | Evaluates cheating-risk open ports (RDP 3389, FTP 21, Telnet 23, SMB 445). Formulates Windows Defender and Linux `ufw` block rules. |
+
+---
+
+## 📁 Modular Project Architecture
 
 ```
-d:/Education/DPSA/
-├── module1_network_discovery/        <-- Folder 1 (Team Member 1)
-│   ├── scanner.py                    <-- Nmap network discovery & port scanner
+Network_Security/
+├── module1_network_discovery/        <-- Phase 1: Exam Environment Verification
+│   ├── scanner.py                    <-- Nmap scanner, SSE stream, command history
 │   ├── scan_results.json             <-- Phase 1 JSON scan data
 │   └── scan_results.csv              <-- Phase 1 CSV report
-├── module2_packet_capture/           <-- Folder 2 (Team Member 2)
-│   ├── sniffer.py                    <-- Wireshark/PyShark/Scapy packet dissector
+├── module2_packet_capture/           <-- Phase 2: Exam Traffic Monitoring
+│   ├── sniffer.py                    <-- SocketIO real-time packet capture engine
 │   ├── packet_analysis.json          <-- Phase 2 JSON packet log
 │   └── packet_analysis.csv           <-- Phase 2 CSV report
-├── module3_mac_spoofing/             <-- Folder 3 (Team Member 3)
-│   ├── mac_changer.py                <-- MAC spoofing & adapter control script
-│   └── mac_spoofing_log.json         <-- Phase 3 audit & verification log
-├── security_analyzer.py              <-- Phase 4 Security Assessment Engine
-├── app.py                            <-- Flask Web Application Server
+├── module3_mac_spoofing/             <-- Phase 3: Candidate Device Verification
+│   ├── mac_changer.py                <-- MAC identity baseline check & spoofing audit script
+│   └── mac_spoofing_log.json         <-- Phase 3 device verification log
+├── security_analyzer.py              <-- Phase 4 Exam Security Assessment & Firewall Engine
+├── app.py                            <-- Flask & SocketIO Web Application Server
+├── test_exam_security_suite.py       <-- Automated Unit & Integration Test Suite
 ├── requirements.txt                  <-- Python Dependencies
 ├── templates/
-│   └── index.html                    <-- Responsive Glassmorphism Dashboard UI
+│   └── index.html                    <-- Responsive Glassmorphism Exam Dashboard
 └── static/
-    ├── style.css                     <-- Dark Theme Design System
-    └── dashboard.js                  <-- Client-side AJAX & Chart.js logic
+    ├── style.css                     <-- Dark Theme Cyber HUD Design System
+    └── dashboard.js                  <-- Client SocketIO & Interactive Dashboard Logic
 ```
 
 ---
 
-## 📸 Interactive Web Dashboard
+## 🚀 Module Feature Breakdowns
 
-![Executive Overview](file:///C:/Users/Surya_prakash/.gemini/antigravity-ide/brain/eeffb6ca-6838-4037-8727-6c7ab3a9657b/executive_overview_1786342965517.png)
+### Module 1: Examination Environment Verification (`module1_network_discovery/`)
+- **Subnet Auto-Discovery**: Auto-detects local IPv4, Gateway IP, Subnet Mask, and CIDR subnet from system network interfaces.
+- **Nmap Sequence Pipeline**: Executes 6 distinct CLI command steps (Ping Sweep `-sn -PR`, Basic Scan, Service Versions `-sV`, OS Fingerprint `-O`, Aggressive Audit `-A`).
+- **SSE Real-Time Stream**: Streams stdout directly into the web console without page refresh.
+- **Audit Command Archive**: Retains an in-memory execution history log (`/api/module1/history`).
 
-### Features & Phase Accomplishments
+### Module 2: Examination Network Traffic Monitoring (`module2_packet_capture/`)
+- **Real-Time Capture Engine**: Captures live exam traffic on selected network interface.
+- **SocketIO Event Bus**: Pushes real-time packet data (`m2_packet`), protocol counters (`m2_stats`), DNS queries (`m2_dns`), and TCP 3-way handshakes (`m2_handshake`).
+- **Traffic Export**: Exports packet captures to `packet_analysis.json` and `packet_analysis.csv`.
 
-#### Phase 1: Network Discovery (`module1_network_discovery/`)
-- **Host Discovery**: Discovers active IP addresses across local network subnets (`/24`).
-- **OS Fingerprinting**: Identifies operating system details (Windows, Linux, Embedded Router).
-- **Service & Version Scanning**: Scans TCP ports (e.g. 21 FTP, 22 SSH, 23 Telnet, 80 HTTP, 445 SMB, 3389 RDP) and detects service products & versions.
-- **Exporting**: Automatically updates `scan_results.json` and `scan_results.csv`.
+### Module 3: Candidate Device Verification (`module3_mac_spoofing/`)
+- **MAC Baseline Audit**: Compares active network adapter MAC address against baseline identity.
+- **Anti-Spoofing Verification**: Identifies hardware address changes or unauthorized adapter replacement during exam session.
 
-![Module 1 Network Discovery](file:///C:/Users/Surya_prakash/.gemini/antigravity-ide/brain/eeffb6ca-6838-4037-8727-6c7ab3a9657b/module1_network_discovery_1786342988310.png)
-
----
-
-#### Phase 2: Packet Capture & Protocol Analysis (`module2_packet_capture/`)
-- **Traffic Capture**: Parses live network packets and PCAP files across standard activities (browsing, file downloads, DNS queries, ICMP pings).
-- **Protocol Dissection**: Analyzes TCP, UDP, DNS, HTTP/HTTPS, and ICMP protocols.
-- **Header Field Extraction**: Extracts Source IP, Destination IP, Protocol, Packet Length, TCP 3-Way Handshake step (SYN -> SYN-ACK -> ACK), and DNS queries.
-
-![Module 2 Packet Capture](file:///C:/Users/Surya_prakash/.gemini/antigravity-ide/brain/eeffb6ca-6838-4037-8727-6c7ab3a9657b/module2_packet_capture_1786343006957.png)
+### Phase 4: Exam Security Assessment (`security_analyzer.py`)
+- **Cheating-Risk Port Detection**: Flags ports 3389 (RDP - remote assistance), 21 (FTP - test leakage), 23 (Telnet - cleartext shell), and 445 (SMB - file sharing).
+- **Firewall Enforcement**: Generates automated Windows Defender `netsh` and Linux `ufw` block commands.
 
 ---
 
-#### Phase 3: MAC Address Spoofing (`module3_mac_spoofing/`)
-- **Adapter Inspection**: Displays current active hardware MAC address and interface status.
-- **MAC Address Changer**: Generates random locally administered MAC addresses or accepts custom inputs.
-- **Adapter Control**: Restarts network adapters via PowerShell / Windows API.
-- **Verification & Restore**: Verifies applied MAC address changes and provides 1-click restoration to original hardware MAC.
+## 🏃 How to Run
 
-![Module 3 MAC Spoofing](file:///C:/Users/Surya_prakash/.gemini/antigravity-ide/brain/eeffb6ca-6838-4037-8727-6c7ab3a9657b/module3_mac_spoofing_1786343025813.png)
-
----
-
-#### Phase 4: Security Analysis & Firewall Rule Generation
-- **Vulnerability Assessment**: Identifies unnecessary open ports (21 FTP, 23 Telnet, 80 HTTP, 135/139/445 SMB, 3389 RDP).
-- **Protocol Security**: Flags plain-text unencrypted protocols.
-- **Firewall Rule Generator**: Formulates copy-paste Windows Defender Firewall (`netsh advfirewall`) and Linux (`ufw`) rules.
-- **Actionable Checklist**: Recommends SFTP, HTTPS/TLS 1.3, 802.1X NAC, and network segmentation.
-
-![Phase 4 Security Analysis](file:///C:/Users/Surya_prakash/.gemini/antigravity-ide/brain/eeffb6ca-6838-4037-8727-6c7ab3a9657b/phase4_security_analysis_1786343044409.png)
-
----
-
-## 🚀 How to Run
-
-1. Open PowerShell / Command Prompt in `d:\Education\DPSA`.
-2. Start the web server:
+1. Launch the server:
    ```bash
    python app.py
    ```
-3. Open your web browser at: **`http://127.0.0.1:5000`**
+2. Open your web browser at: **`http://127.0.0.1:5000`**
+

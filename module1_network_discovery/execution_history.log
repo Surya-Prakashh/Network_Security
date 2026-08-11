@@ -5769,3 +5769,48 @@ Network Distance: 0 hops
 OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
 Nmap done: 256 IP addresses (5 hosts up) scanned in 374.76 seconds
 
+
+======================================================================
+[2026-08-11 22:50:01] COMMAND: nmap -O 10.24.96.0/24 (Target: 10.24.96.0/24)
+======================================================================
+$ nmap -O 10.24.96.0/24
+
+
+Execution error: [WinError 2] The system cannot find the file specified
+
+
+======================================================================
+[2026-08-11 22:50:21] COMMAND: nmap -O 10.24.96.0/24 (Target: 10.24.96.0/24)
+======================================================================
+$ nmap -O 10.24.96.0/24
+
+
+Execution error: [WinError 2] The system cannot find the file specified
+
+
+======================================================================
+[2026-08-11 22:50:42] COMMAND: nmap -sn -PR --stats-every 1s --min-rate 300 10.24.96.0/24 (Target: 10.24.96.0/24)
+======================================================================
+$ nmap -sn -PR --stats-every 1s --min-rate 300 10.24.96.0/24
+
+
+Execution error: [WinError 2] The system cannot find the file specified
+
+
+======================================================================
+[2026-08-11 22:54:53] COMMAND: nmap -O 10.24.96.0/24 (Target: 10.24.96.0/24)
+======================================================================
+$ nmap -O 10.24.96.0/24
+
+
+Execution error: [WinError 2] The system cannot find the file specified
+
+
+======================================================================
+[2026-08-11 22:55:06] COMMAND: nmap -O 10.24.96.0/24 (Target: 10.24.96.0/24)
+======================================================================
+$ nmap -O 10.24.96.0/24
+
+
+Execution error: [WinError 2] The system cannot find the file specified
+

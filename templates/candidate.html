@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Examination Portal - Secure Online Exam</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Styling -->
+    <style>
+        :root {
+            --bg-dark: #0a101d;
+            --card-bg: rgba(15, 23, 42, 0.85);
+            --accent-cyan: #00f2fe;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at 50% 0%, rgba(0, 242, 254, 0.08), transparent 70%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background: rgba(10, 16, 29, 0.95);
+            border-bottom: 1px solid rgba(0, 242, 254, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .candidate-badge {
+            background: rgba(0, 242, 254, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .timer-box {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent-yellow);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(245, 158, 11, 0.1);
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Question Box */
+        .question-number {
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
+        .question-text {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+            color: #f3f4f6;
+        }
+
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .option-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .option-item:hover, .option-item.selected {
+            background: rgba(0, 242, 254, 0.1);
+            border-color: var(--accent-cyan);
+        }
+
+        .option-radio {
+            accent-color: var(--accent-cyan);
+        }
+
+        .btn {
+            padding: 0.65rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-blue) 100%);
+            color: #000;
+            font-weight: 700;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-yellow);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        /* Sidebar Info */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.88rem;
+        }
+
+        .info-label {
+            color: var(--text-muted);
+        }
+
+        .info-val {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* Demo Trigger Card */
+        .demo-card {
+            margin-top: 1.5rem;
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .demo-title {
+            color: var(--accent-red);
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .demo-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+
+        .demo-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--accent-cyan);
+            color: #fff;
+            padding: 0.85rem 1.25rem;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            z-index: 100;
+            font-size: 0.9rem;
+        }
+
+        .toast.hidden { display: none; }
+    </style>
+</head>
+<body>
+    <!-- Top Header -->
+    <header class="header">
+        <div class="header-title">
+            <i class="fa-solid fa-graduation-cap" style="color: var(--accent-cyan);"></i>
+            Online Examination Portal
+            <span class="candidate-badge" id="candBadge">Candidate ID: CANDIDATE-8821</span>
+        </div>
+        <div class="timer-box">
+            <i class="fa-regular fa-clock"></i> Time Remaining: <span id="timerDisplay">58:42</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="container">
+        <!-- Left: Question Workspace -->
+        <main class="card">
+            <div class="card-title">
+                <i class="fa-solid fa-pen-to-square" style="color: var(--accent-cyan);"></i> Exam Session Question #3
+            </div>
+
+            <div class="question-number">Question 3 of 25 • Network Security</div>
+            <div class="question-text">
+                Which TCP port is associated with Remote Desktop Protocol (RDP), and why is it strictly prohibited in secure online examination environments?
+            </div>
+
+            <div class="options-list">
+                <label class="option-item">
+                    <input type="radio" name="ans" class="option-radio">
+                    <span>A) Port 80; because it allows cleartext web browsing during test taking.</span>
+                </label>
+                <label class="option-item">
+                    <input type="radio" name="ans" class="option-radio">
+                    <span>B) Port 3389; because active RDP allows unauthorized third-party remote assistance and candidate impersonation during exams.</span>
+                </label>
+                <label class="option-item">
+                    <input type="radio" name="ans" class="option-radio">
+                    <span>C) Port 21; because it allows FTP uploads of examination answer sheets.</span>
+                </label>
+                <label class="option-item">
+                    <input type="radio" name="ans" class="option-radio">
+                    <span>D) Port 53; because DNS lookups reveal candidate IP addresses.</span>
+                </label>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn btn-warning" onclick="showToast('Answer flagged for review.')">
+                    <i class="fa-regular fa-flag"></i> Flag for Review
+                </button>
+                <button class="btn btn-primary" onclick="submitAnswer()">
+                    Save & Next Question <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </main>
+
+        <!-- Right: Candidate Status & Demo Threats -->
+        <aside>
+            <!-- Candidate Status -->
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-user-check" style="color: var(--accent-green);"></i> Candidate Connection Info
+                </div>
+
+                <div class="info-row">
+                    <span class="info-label">Candidate Name:</span>
+                    <span class="info-val">Attending Student</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Exam Paper:</span>
+                    <span class="info-val">Networks & Security</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Candidate Device IP:</span>
+                    <span class="info-val" id="candIp">Detecting...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Proctor Server IP:</span>
+                    <span class="info-val" id="servIp">Connecting...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Network Status:</span>
+                    <span class="info-val" style="color: var(--accent-green);"><i class="fa-solid fa-wifi"></i> Connected</span>
+                </div>
+            </div>
+
+            <!-- Demo Threat Simulation Box -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Proctor HUD Live Demonstration
+                </div>
+                <div class="demo-desc">
+                    Click buttons below to simulate candidate background network behaviors. System 1 (Proctor Server) will capture the packets live on the monitoring dashboard!
+                </div>
+                <div class="demo-btn-group">
+                    <button class="btn btn-danger" onclick="triggerThreat('rdp')">
+                        <i class="fa-solid fa-desktop"></i> Simulate RDP Cheating Attempt (Port 3389)
+                    </button>
+                    <button class="btn btn-warning" onclick="triggerThreat('ftp')">
+                        <i class="fa-solid fa-file-export"></i> Simulate FTP Test Leak Attempt (Port 21)
+                    </button>
+                    <button class="btn btn-warning" style="background: rgba(0,242,254,0.15); color: #00f2fe; border-color: rgba(0,242,254,0.3);" onclick="triggerThreat('dns')">
+                        <i class="fa-solid fa-globe"></i> Simulate Prohibited DNS Query
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            fetch("/api/candidate/ping", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ candidate_id: "CANDIDATE-8821" })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("candIp").textContent = data.candidate_ip || "Connected";
+                document.getElementById("servIp").textContent = window.location.hostname;
+            });
+
+            startTimer();
+        });
+
+        function startTimer() {
+            let seconds = 3522;
+            setInterval(() => {
+                seconds--;
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                document.getElementById("timerDisplay").textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+            }, 1000);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            toast.textContent = msg;
+            toast.classList.remove("hidden");
+            setTimeout(() => toast.classList.add("hidden"), 3000);
+        }
+
+        function submitAnswer() {
+            showToast("Answer submitted successfully. Loading next question...");
+        }
+
+        function triggerThreat(type) {
+            fetch("/api/candidate/simulate-threat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ threat_type: type, candidate_id: "CANDIDATE-8821" })
+            })
+            .then(res => res.json())
+            .then(data => {
+                showToast(`[Demo] Simulated ${type.toUpperCase()} traffic! Check System 1 Proctor HUD.`);
+            });
+        }
+    </script>
+</body>
+</html>
