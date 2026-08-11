@@ -330,7 +330,7 @@ class TestOnlineExamSecuritySuite(unittest.TestCase):
         self.assertIn("candidate_ip", data)
 
     def test_31_api_candidate_simulate_threat_endpoint(self):
-        """Test 31: POST /api/candidate/simulate-threat emits demonstration cheating packets."""
+        """Test 31: POST /api/candidate/simulate-threat emits demonstration cheating packets & logs violation."""
         response = self.app.post(
             "/api/candidate/simulate-threat",
             data=json.dumps({"threat_type": "rdp", "candidate_id": "CANDIDATE-8821"}),
@@ -340,9 +340,45 @@ class TestOnlineExamSecuritySuite(unittest.TestCase):
         data = json.loads(response.data)
         self.assertTrue(data.get("ok", False))
         self.assertEqual(data["log"]["threat_type"], "rdp")
+        self.assertIn("violation", data)
+        self.assertEqual(data["violation"]["risk"], "CRITICAL")
+
+    def test_32_log_and_get_exam_violations(self):
+        """Test 32: Log candidate false attempt / violation and verify retrieval."""
+        v = security_analyzer.log_exam_violation(
+            candidate_id="CANDIDATE-9999",
+            client_ip="192.168.1.99",
+            threat_type="FTP_LEAK",
+            detail="Test FTP paper leak attempt",
+            risk="HIGH",
+            port=21
+        )
+        self.assertEqual(v["candidate_id"], "CANDIDATE-9999")
+        self.assertEqual(v["threat_type"], "FTP_LEAK")
+        
+        violations = security_analyzer.get_exam_violations()
+        self.assertGreaterEqual(len(violations), 1)
+        self.assertEqual(violations[0]["candidate_id"], "CANDIDATE-9999")
+
+    def test_33_api_security_violations_endpoint(self):
+        """Test 33: GET and DELETE /api/security-analysis/violations endpoints."""
+        get_res = self.app.get("/api/security-analysis/violations")
+        self.assertEqual(get_res.status_code, 200)
+        v_list = json.loads(get_res.data)
+        self.assertIsInstance(v_list, list)
+
+        del_res = self.app.delete("/api/security-analysis/violations")
+        self.assertEqual(del_res.status_code, 200)
+        del_data = json.loads(del_res.data)
+        self.assertEqual(del_data.get("status"), "success")
+
+        get_res2 = self.app.get("/api/security-analysis/violations")
+        v_list2 = json.loads(get_res2.data)
+        self.assertEqual(len(v_list2), 0)
 
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 
 

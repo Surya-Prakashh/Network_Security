@@ -31,6 +31,59 @@ INSECURE_PROTOCOLS_DB = {
 }
 
 
+VIOLATIONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exam_violations.json")
+
+
+def get_exam_violations():
+    """Returns the list of candidate false attempts / security violations."""
+    if os.path.exists(VIOLATIONS_FILE):
+        try:
+            with open(VIOLATIONS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+
+def log_exam_violation(candidate_id, client_ip, threat_type, detail, risk="HIGH", port=None, target_ip=None):
+    """Logs a candidate false attempt / security violation separately into exam_violations.json."""
+    violations = get_exam_violations()
+    
+    entry = {
+        "id": len(violations) + 1,
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "candidate_id": candidate_id or "CANDIDATE-UNKNOWN",
+        "client_ip": client_ip or "Unknown",
+        "threat_type": threat_type or "UNAUTHORIZED_PROBE",
+        "port": port,
+        "target_ip": target_ip or "192.168.1.1",
+        "risk": risk.upper() if risk else "HIGH",
+        "detail": detail or "Unauthorized attempt detected during online exam monitoring.",
+        "status": "FLAGGED & BLOCKED"
+    }
+
+    violations.insert(0, entry)  # newest first
+    violations = violations[:100]  # keep up to 100 entries
+
+    try:
+        with open(VIOLATIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(violations, f, indent=4)
+    except Exception as e:
+        print(f"[!] Error saving exam violation: {e}")
+
+    return entry
+
+
+def clear_exam_violations():
+    """Clears persistent exam violations history."""
+    try:
+        with open(VIOLATIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f)
+        return True
+    except Exception:
+        return False
+
+
 def analyze_security_posture(scan_file=None, packet_file=None):
     """Performs Phase 4 Security Assessment on candidate examination environment."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -127,6 +180,9 @@ def analyze_security_posture(scan_file=None, packet_file=None):
         }
     ])
 
+    violations = get_exam_violations()
+    critical_violations_count = sum(1 for v in violations if v.get("risk") == "CRITICAL")
+
     report = {
         "generated_at": datetime.datetime.now().isoformat(),
         "summary": {
@@ -134,7 +190,9 @@ def analyze_security_posture(scan_file=None, packet_file=None):
             "unnecessary_open_ports_count": len(unnecessary_ports),
             "insecure_protocols_found": list(insecure_protocols),
             "recommended_firewall_rules_count": len(recommended_firewall_rules),
-            "security_score": max(10, 100 - (len(unnecessary_ports) * 15 + len(insecure_protocols) * 10))
+            "total_violations_count": len(violations),
+            "critical_violations_count": critical_violations_count,
+            "security_score": max(10, 100 - (len(unnecessary_ports) * 15 + len(insecure_protocols) * 10 + len(violations) * 5))
         },
         "unnecessary_ports": unnecessary_ports,
         "insecure_protocols": [
@@ -142,7 +200,8 @@ def analyze_security_posture(scan_file=None, packet_file=None):
             for p in insecure_protocols
         ],
         "recommended_firewall_rules": recommended_firewall_rules,
-        "security_improvements": security_recommendations
+        "security_improvements": security_recommendations,
+        "exam_violations": violations
     }
 
     report_path = os.path.join(script_dir, "security_analysis_report.json")

@@ -615,6 +615,45 @@ function m2InitSocketHandlers() {
     m2socket.on("m2_status", function(data) {
         m2SetStatus(data.status, data.error, data.start_time);
     });
+
+    // ── Candidate False Attempt / Security Violation Event ─────────────────
+    m2socket.on("exam_violation", function(violation) {
+        if (!violation) return;
+        showToast(`[EXAM ALERT] ${violation.candidate_id} (${violation.client_ip}): ${violation.threat_type} Attempt Flagged!`, "error");
+        
+        // Append row to Phase 4 violations table
+        const tbody = document.getElementById("examViolationsTableBody");
+        if (!tbody) return;
+
+        const placeholder = tbody.querySelector("tr td[colspan='7']");
+        if (placeholder) placeholder.parentElement.remove();
+
+        const tr = document.createElement("tr");
+        const riskClass = `risk-${(violation.risk || 'high').toLowerCase()}`;
+        tr.innerHTML = `
+            <td style="font-size:0.8rem; color:#9ca3af;">${violation.timestamp || ""}</td>
+            <td><strong>${escapeHtml(violation.candidate_id || "")}</strong> <br><code style="font-size:0.75rem; color:#00f2fe;">${escapeHtml(violation.client_ip || "")}</code></td>
+            <td><strong style="color:#f3f4f6;">${escapeHtml(violation.threat_type || "")}</strong></td>
+            <td><code>Port ${violation.port || "N/A"}</code></td>
+            <td><span class="risk-badge ${riskClass}">${violation.risk || "HIGH"}</span></td>
+            <td style="font-size:0.82rem; max-width:280px;">${escapeHtml(violation.detail || "")}</td>
+            <td><span style="color:#ef4444; font-weight:700; font-size:0.78rem;"><i class="fa-solid fa-ban"></i> ${violation.status || "BLOCKED"}</span></td>
+        `;
+        tbody.insertBefore(tr, tbody.firstChild);
+
+        // Update counters
+        const totalEl = document.getElementById("sec-stat-total-v");
+        if (totalEl) totalEl.textContent = (parseInt(totalEl.textContent) || 0) + 1;
+        const badgeEl = document.getElementById("sec-total-violations-badge");
+        if (badgeEl && totalEl) badgeEl.textContent = `${totalEl.textContent} Violations`;
+        if (violation.risk === "CRITICAL") {
+            const critEl = document.getElementById("sec-stat-crit-v");
+            if (critEl) critEl.textContent = (parseInt(critEl.textContent) || 0) + 1;
+        } else {
+            const otherEl = document.getElementById("sec-stat-other-v");
+            if (otherEl) otherEl.textContent = (parseInt(otherEl.textContent) || 0) + 1;
+        }
+    });
 }
 
 /** Batch flush the incoming packet buffer to the DOM via rAF. */
@@ -942,6 +981,9 @@ function loadPhase4Data() {
     fetch("/api/security-analysis")
         .then(res => res.json())
         .then(report => {
+            // Render Exam Violations & Candidate False Attempts
+            renderExamViolationsTable(report.exam_violations || []);
+
             // Risky Ports Table
             const tbody = document.getElementById("riskyPortsTableBody");
             tbody.innerHTML = "";
@@ -1003,6 +1045,57 @@ function loadPhase4Data() {
                 `;
                 checkContainer.appendChild(div);
             });
+        });
+}
+
+function renderExamViolationsTable(violations) {
+    const tbody = document.getElementById("examViolationsTableBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+    if (!violations || violations.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#6b7280; padding:2rem;">No candidate false attempts or security violations logged yet.</td></tr>`;
+        document.getElementById("sec-stat-total-v").textContent = "0";
+        document.getElementById("sec-stat-crit-v").textContent = "0";
+        document.getElementById("sec-stat-other-v").textContent = "0";
+        document.getElementById("sec-total-violations-badge").textContent = "0 Violations";
+        return;
+    }
+
+    let critCount = 0;
+    let otherCount = 0;
+
+    violations.forEach(v => {
+        if (v.risk === "CRITICAL") critCount++;
+        else otherCount++;
+
+        const tr = document.createElement("tr");
+        const riskClass = `risk-${(v.risk || 'high').toLowerCase()}`;
+        tr.innerHTML = `
+            <td style="font-size:0.8rem; color:#9ca3af;">${v.timestamp || ""}</td>
+            <td><strong>${escapeHtml(v.candidate_id || "")}</strong> <br><code style="font-size:0.75rem; color:#00f2fe;">${escapeHtml(v.client_ip || "")}</code></td>
+            <td><strong style="color:#f3f4f6;">${escapeHtml(v.threat_type || "")}</strong></td>
+            <td><code>Port ${v.port || "N/A"}</code></td>
+            <td><span class="risk-badge ${riskClass}">${v.risk || "HIGH"}</span></td>
+            <td style="font-size:0.82rem; max-width:280px;">${escapeHtml(v.detail || "")}</td>
+            <td><span style="color:#ef4444; font-weight:700; font-size:0.78rem;"><i class="fa-solid fa-ban"></i> ${v.status || "BLOCKED"}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById("sec-stat-total-v").textContent = violations.length;
+    document.getElementById("sec-stat-crit-v").textContent = critCount;
+    document.getElementById("sec-stat-other-v").textContent = otherCount;
+    document.getElementById("sec-total-violations-badge").textContent = `${violations.length} Violations`;
+}
+
+function clearExamViolations() {
+    showToast("Clearing Candidate False Attempts Log...");
+    fetch("/api/security-analysis/violations", { method: "DELETE" })
+        .then(res => res.json())
+        .then(data => {
+            showToast("Candidate False Attempts Log Cleared!", "success");
+            loadPhase4Data();
         });
 }
 

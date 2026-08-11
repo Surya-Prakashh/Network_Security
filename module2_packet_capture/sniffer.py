@@ -1713,6 +1713,29 @@ class CaptureEngine:
             if hs_event:
                 self._emit("m2_handshake", hs_event)
 
+            # Check for candidate false attempt / security violation in live capture
+            proto_val = rec.get("protocol") or ""
+            sport_val = rec.get("source_port")
+            dport_val = rec.get("destination_port")
+            dns_q = rec.get("dns_query") or ""
+
+            if proto_val in ("RDP", "FTP", "TELNET", "SMB") or dport_val in (3389, 21, 23, 445) or "cheating" in dns_q.lower():
+                try:
+                    from security_analyzer import log_exam_violation
+                    risk_level = "CRITICAL" if (proto_val == "RDP" or dport_val == 3389) else ("HIGH" if (proto_val in ("FTP", "TELNET", "SMB") or dport_val in (21, 23, 445)) else "MEDIUM")
+                    v_entry = log_exam_violation(
+                        candidate_id="CANDIDATE-LIVE",
+                        client_ip=rec.get("source_ip", "Unknown"),
+                        threat_type=proto_val if proto_val in ("RDP", "FTP", "TELNET", "SMB") else "PROHIBITED_DNS",
+                        detail=f"Live packet capture detected unauthorized {proto_val or 'DNS'} attempt on port {dport_val or 53} ({rec.get('info', '')}).",
+                        risk=risk_level,
+                        port=dport_val,
+                        target_ip=rec.get("destination_ip", "")
+                    )
+                    self._emit("exam_violation", v_entry)
+                except Exception:
+                    pass
+
         # ── Launch Scapy sniff with Layer 3 & Socket Fallback ───────────────────
         try:
             sniff(

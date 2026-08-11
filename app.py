@@ -30,7 +30,12 @@ from module3_mac_spoofing.mac_changer import (
     restore_original_mac,
     load_log as load_mac_log
 )
-from security_analyzer import analyze_security_posture
+from security_analyzer import (
+    analyze_security_posture,
+    log_exam_violation,
+    get_exam_violations,
+    clear_exam_violations
+)
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 # SocketIO in threading mode — works on Windows without eventlet/gevent
@@ -77,6 +82,8 @@ def candidate_simulate_threat():
         "threat_type": threat_type
     }
 
+    dst_port = 3389 if threat_type == "rdp" else (21 if threat_type == "ftp" else (53 if threat_type == "dns" else 80))
+
     if threat_type == "rdp":
         log_entry["detail"] = f"Candidate {candidate_id} ({client_ip}) attempted Remote Desktop Connection (Port 3389 RDP)."
         log_entry["risk"] = "CRITICAL"
@@ -90,20 +97,35 @@ def candidate_simulate_threat():
         log_entry["detail"] = f"Candidate {candidate_id} ({client_ip}) performed unexpected network probe."
         log_entry["risk"] = "INFO"
 
-    # Emit socketio event if active
+    # Save false attempt / security violation separately into exam_violations.json
+    violation = log_exam_violation(
+        candidate_id=candidate_id,
+        client_ip=client_ip,
+        threat_type=threat_type.upper(),
+        detail=log_entry["detail"],
+        risk=log_entry["risk"],
+        port=dst_port,
+        target_ip="192.168.1.1"
+    )
+
+    # Re-evaluate security posture
+    analyze_security_posture()
+
+    # Emit SocketIO real-time events for live Exam Security Assessment tab update
+    socketio.emit("exam_violation", violation)
     socketio.emit("m2_packet", {
         "id": 9999,
-        "timestamp": os.getenv("TIME", "Now"),
+        "timestamp": violation["timestamp"],
         "src_ip": client_ip,
         "dst_ip": "192.168.1.1",
         "protocol": threat_type.upper(),
         "source_port": 54321,
-        "destination_port": 3389 if threat_type == "rdp" else (21 if threat_type == "ftp" else 53),
+        "destination_port": dst_port,
         "length": 128,
         "details": log_entry["detail"]
     })
 
-    return jsonify({"ok": True, "log": log_entry})
+    return jsonify({"ok": True, "log": log_entry, "violation": violation})
 
 
 @app.route("/api/overview", methods=["GET"])
@@ -148,7 +170,9 @@ def get_overview():
         "security_summary": sec_data.get("summary", {
             "security_score": 85,
             "unnecessary_open_ports_count": 0,
-            "recommended_firewall_rules_count": 0
+            "recommended_firewall_rules_count": 0,
+            "total_violations_count": 0,
+            "critical_violations_count": 0
         })
     })
 
@@ -293,6 +317,14 @@ def api_module3_mac():
 
         if action == "change":
             res = change_mac_address(adapter, new_mac)
+            violation = log_exam_violation(
+                candidate_id="CANDIDATE-8821",
+                client_ip=request.remote_addr,
+                threat_type="MAC_SPOOFING",
+                detail=f"Candidate workstation MAC address changed on {adapter} to {new_mac} (Device impersonation attempt).",
+                risk="HIGH"
+            )
+            socketio.emit("exam_violation", violation)
         elif action == "restore":
             res = restore_original_mac(adapter)
         else:
@@ -321,6 +353,16 @@ def api_security_analysis():
         with open(sec_file, "r") as f:
             return jsonify(json.load(f))
     return jsonify(analyze_security_posture())
+
+
+@app.route("/api/security-analysis/violations", methods=["GET", "DELETE"])
+def api_security_violations():
+    """Fetch or clear recorded candidate false attempts / security violations."""
+    if request.method == "DELETE":
+        clear_exam_violations()
+        analyze_security_posture()
+        return jsonify({"status": "success", "message": "Exam violations log cleared."})
+    return jsonify(get_exam_violations())
 
 
 @app.route("/download/<path:filename>", methods=["GET"])

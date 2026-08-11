@@ -1,1 +1,13 @@
 IP Address,Hostname,Status,MAC Address,OS Details,Port,Protocol,Service,Version
+10.24.96.33,10.24.96.33,up,0E:D1:ED:76:16:75,Android 9 (Linux 4.9) (98% accuracy),53,tcp,domain,Unknown Version
+10.24.96.185,10.24.96.185,up,10:68:38:C3:E3:63,OS detection not available / restricted,None,None,None,None
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),21,tcp,ftp,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),135,tcp,msrpc,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),139,tcp,netbios-ssn,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),445,tcp,microsoft-ds,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),3306,tcp,mysql,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),4343,tcp,unicall,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),4449,tcp,privatewire,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),5000,tcp,upnp,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),5432,tcp,postgresql,Unknown Version
+10.24.96.60,10.24.96.60,up,N/A,Microsoft Windows 11 24H2 - 25H2 (100% accuracy),7070,tcp,realserver,Unknown Version

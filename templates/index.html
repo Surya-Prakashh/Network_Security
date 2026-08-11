@@ -683,6 +683,53 @@
                     </button>
                 </div>
 
+                <!-- Candidate False Attempts & Cheating Incidents Audit Log -->
+                <div class="sec-card margin-bottom-lg" style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.25); margin-bottom: 1.5rem;">
+                    <div class="sec-card-header red" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3><i class="fa-solid fa-user-ninja"></i> Live Candidate False Attempts & Cheating Violations Log</h3>
+                        <div style="display:flex; gap:0.5rem;">
+                            <span class="badge badge-danger" id="sec-total-violations-badge">0 Violations</span>
+                            <button class="btn btn-outline" style="padding:0.25rem 0.65rem; font-size:0.75rem; border-color:rgba(239,68,68,0.4); color:#ef4444;" onclick="clearExamViolations()">
+                                <i class="fa-solid fa-trash-can"></i> Clear Violations
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:1.5rem; padding:0.85rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; background:rgba(0,0,0,0.2);">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.8rem; color:#9ca3af;">Total Attempts Flagged:</span>
+                            <strong style="font-size:1rem; color:#fff;" id="sec-stat-total-v">0</strong>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.8rem; color:#9ca3af;">Critical Remote Access Attempts:</span>
+                            <strong style="font-size:1rem; color:#ef4444;" id="sec-stat-crit-v">0</strong>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.8rem; color:#9ca3af;">Prohibited Port & DNS Probes:</span>
+                            <strong style="font-size:1rem; color:#f59e0b;" id="sec-stat-other-v">0</strong>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+                        <table class="data-table">
+                            <thead style="position:sticky; top:0; z-index:2; background:#111827;">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Candidate ID & IP</th>
+                                    <th>Attempt / Violation Type</th>
+                                    <th>Target Port</th>
+                                    <th>Risk Level</th>
+                                    <th>Cheating Incident Details</th>
+                                    <th>Proctor Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="examViolationsTableBody">
+                                <tr><td colspan="7" style="text-align:center; color:#6b7280; padding:2rem;">No candidate false attempts or security violations logged yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Vulnerable Ports & Insecure Protocols Row -->
                 <div class="sec-grid">
                     <div class="sec-card">

@@ -1,17 +1,124 @@
 {
-    "timestamp": "2026-08-11T22:55:06.573434",
+    "timestamp": "2026-08-11T23:05:19.386476",
     "target": "10.24.96.0/24",
     "command_executed": "nmap -O 10.24.96.0/24",
     "cmd_type": "os_scan",
     "scan_mode": "Live Nmap CLI (Os Scan)",
     "network_interfaces": {
-        "local_ip": "10.24.96.70",
-        "default_gateway": null,
+        "local_ip": "10.24.96.60",
+        "default_gateway": "10.24.96.33",
         "subnet_mask": "255.255.255.0",
         "subnet_cidr": "10.24.96.0/24",
-        "raw_ipconfig": "\nWindows IP Configuration\n\n\nEthernet adapter Ethernet:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nUnknown adapter McAfee VPN:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 1:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 2:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Wi-Fi:\n\n   Connection-specific DNS Suffix  . : \n   IPv6 Address. . . . . . . . . . . : 2409:40f4:2108:3779:bf68:2abe:847c:a337\n   Temporary IPv6 Address. . . . . . : 2409:40f4:2108:3779:bc8d:2775:c9e8:9fae\n   Link-local IPv6 Address . . . . . : fe80::79e5:e20b:6169:b9f3%24\n   IPv4 Address. . . . . . . . . . . : 10.24.96.70\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n   Default Gateway . . . . . . . . . : fe80::cd1:edff:fe76:1675%24\n                                       10.24.96.33\n\nEthernet adapter Bluetooth Network Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n"
+        "raw_ipconfig": "\nWindows IP Configuration\n\n\nEthernet adapter Ethernet:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nUnknown adapter Local Area Connection:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 3:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Local Area Connection* 4:\n\n   Media State . . . . . . . . . . . : Media disconnected\n   Connection-specific DNS Suffix  . : \n\nWireless LAN adapter Wi-Fi:\n\n   Connection-specific DNS Suffix  . : \n   IPv4 Address. . . . . . . . . . . : 10.24.96.60\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n   Default Gateway . . . . . . . . . : 10.24.96.33\n"
     },
-    "total_hosts_found": 0,
-    "hosts": [],
-    "terminal_output": "$ nmap -O 10.24.96.0/24\n\n\nExecution error: [WinError 2] The system cannot find the file specified\n"
+    "total_hosts_found": 3,
+    "hosts": [
+        {
+            "ip": "10.24.96.33",
+            "status": "up",
+            "hostname": "10.24.96.33",
+            "mac_address": "0E:D1:ED:76:16:75",
+            "vendor": "Unknown",
+            "os_details": "Android 9 (Linux 4.9) (98% accuracy)",
+            "ports": [
+                {
+                    "port": 53,
+                    "protocol": "tcp",
+                    "service": "domain",
+                    "version": "Unknown Version",
+                    "state": "open"
+                }
+            ]
+        },
+        {
+            "ip": "10.24.96.185",
+            "status": "up",
+            "hostname": "10.24.96.185",
+            "mac_address": "10:68:38:C3:E3:63",
+            "vendor": "AzureWave Technology",
+            "os_details": "OS detection not available / restricted",
+            "ports": []
+        },
+        {
+            "ip": "10.24.96.60",
+            "status": "up",
+            "hostname": "10.24.96.60",
+            "mac_address": "N/A",
+            "vendor": "Unknown",
+            "os_details": "Microsoft Windows 11 24H2 - 25H2 (100% accuracy)",
+            "ports": [
+                {
+                    "port": 21,
+                    "protocol": "tcp",
+                    "service": "ftp",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 135,
+                    "protocol": "tcp",
+                    "service": "msrpc",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 139,
+                    "protocol": "tcp",
+                    "service": "netbios-ssn",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 445,
+                    "protocol": "tcp",
+                    "service": "microsoft-ds",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 3306,
+                    "protocol": "tcp",
+                    "service": "mysql",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 4343,
+                    "protocol": "tcp",
+                    "service": "unicall",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 4449,
+                    "protocol": "tcp",
+                    "service": "privatewire",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 5000,
+                    "protocol": "tcp",
+                    "service": "upnp",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 5432,
+                    "protocol": "tcp",
+                    "service": "postgresql",
+                    "version": "Unknown Version",
+                    "state": "open"
+                },
+                {
+                    "port": 7070,
+                    "protocol": "tcp",
+                    "service": "realserver",
+                    "version": "Unknown Version",
+                    "state": "open"
+                }
+            ]
+        }
+    ],
+    "terminal_output": "$ nmap -O 10.24.96.0/24\n\nStarting Nmap 7.99 ( https://nmap.org ) at 2026-08-11 23:04 +0530\nStats: 0:00:01 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan\nARP Ping Scan Timing: About 32.94% done; ETC: 23:04 (0:00:00 remaining)\nStats: 0:00:02 elapsed; 0 hosts completed (0 up), 255 undergoing ARP Ping Scan\nARP Ping Scan Timing: About 68.23% done; ETC: 23:04 (0:00:00 remaining)\nStats: 0:00:03 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 0.38% done\nStats: 0:00:04 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 32.90% done; ETC: 23:04 (0:00:00 remaining)\nStats: 0:00:05 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 50.50% done; ETC: 23:04 (0:00:01 remaining)\nStats: 0:00:06 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 51.50% done; ETC: 23:05 (0:00:03 remaining)\nStats: 0:00:07 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 56.25% done; ETC: 23:05 (0:00:02 remaining)\nStats: 0:00:08 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 64.80% done; ETC: 23:05 (0:00:03 remaining)\nStats: 0:00:09 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 71.58% done; ETC: 23:05 (0:00:02 remaining)\nStats: 0:00:10 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 80.03% done; ETC: 23:05 (0:00:01 remaining)\nStats: 0:00:11 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 86.90% done; ETC: 23:05 (0:00:01 remaining)\nStats: 0:00:12 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 95.25% done; ETC: 23:05 (0:00:00 remaining)\nStats: 0:00:13 elapsed; 253 hosts completed (2 up), 2 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 100.00% done; ETC: 23:05 (0:00:00 remaining)\nNmap scan report for 10.24.96.33\nHost is up (0.0036s latency).\nNot shown: 999 closed tcp ports (reset)\nPORT   STATE SERVICE\n53/tcp open  domain\nMAC Address: 0E:D1:ED:76:16:75 (Unknown)\nNo exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).\nTCP/IP fingerprint:\nOS:SCAN(V=7.99%E=4%D=8/11%OT=53%CT=1%CU=31747%PV=Y%DS=1%DC=D%G=Y%M=0ED1ED%T\nOS:M=6A7B5D56%P=i686-pc-windows-windows)SEQ(SP=101%GCD=1%ISR=107%TI=Z%CI=Z%\nOS:II=I%TS=A)SEQ(SP=103%GCD=1%ISR=103%TI=Z%CI=Z%II=I%TS=A)SEQ(SP=104%GCD=1%\nOS:ISR=10B%TI=Z%CI=Z%II=I%TS=A)SEQ(SP=105%GCD=1%ISR=10B%TI=Z%CI=Z%II=I%TS=A\nOS:)SEQ(SP=108%GCD=2%ISR=108%TI=Z%CI=Z%II=I%TS=A)OPS(O1=M5B4ST11NW9%O2=M5B4\nOS:ST11NW9%O3=M5B4NNT11NW9%O4=M5B4ST11NW9%O5=M5B4ST11NW9%O6=M5B4ST11)WIN(W1\nOS:=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=FFFF%W6=FFFF)ECN(R=Y%DF=Y%T=40%W=FFFF%O\nOS:=M5B4%CC=N%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(R=N)T4(R=\nOS:Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=40%W=0%S=Z%A=S+%F=A\nOS:R%O=%RD=0%Q=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=4\nOS:0%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G%RID=\nOS:G%RIPCK=G%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=40%CD=S)\n\nNetwork Distance: 1 hop\n\nNmap scan report for 10.24.96.185\nHost is up (0.055s latency).\nAll 1000 scanned ports on 10.24.96.185 are in ignored states.\nNot shown: 1000 filtered tcp ports (no-response)\nMAC Address: 10:68:38:C3:E3:63 (AzureWave Technology)\nToo many fingerprints match this host to give specific OS details\nNetwork Distance: 1 hop\n\nStats: 0:00:26 elapsed; 255 hosts completed (3 up), 1 undergoing SYN Stealth Scan\nSYN Stealth Scan Timing: About 1.00% done; ETC: 23:05 (0:00:00 remaining)\nNmap scan report for 10.24.96.60\nHost is up (0.00020s latency).\nNot shown: 990 closed tcp ports (reset)\nPORT     STATE SERVICE\n21/tcp   open  ftp\n135/tcp  open  msrpc\n139/tcp  open  netbios-ssn\n445/tcp  open  microsoft-ds\n3306/tcp open  mysql\n4343/tcp open  unicall\n4449/tcp open  privatewire\n5000/tcp open  upnp\n5432/tcp open  postgresql\n7070/tcp open  realserver\nDevice type: general purpose\nRunning: Microsoft Windows 11\nOS CPE: cpe:/o:microsoft:windows_11\nOS details: Microsoft Windows 11 24H2 - 25H2\nNetwork Distance: 0 hops\n\nOS detection performed. Please report any incorrect results at https://nmap.org/submit/ .\nNmap done: 256 IP addresses (3 hosts up) scanned in 27.43 seconds\n"
 }
