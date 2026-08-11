@@ -90,6 +90,50 @@ DEFAULT_JSON_PATH = os.path.join(SCRIPT_DIR, "packet_analysis.json")
 DEFAULT_CSV_PATH = os.path.join(SCRIPT_DIR, "packet_analysis.csv")
 ALLOWED_PCAP_EXTENSIONS = {".pcap", ".pcapng"}
 
+# ---------------------------------------------------------------------------
+# Phase 2 DNS Configuration
+# ---------------------------------------------------------------------------
+
+CRITICAL_DNS_DOMAINS = {
+    "chatgpt.com": "ChatGPT",
+    "claude.ai": "Claude",
+    "gemini.google.com": "Gemini",
+    "openai.com": "OpenAI",
+    "copilot.microsoft.com": "Copilot"
+}
+
+def _normalize_domain(domain: str) -> str:
+    if not domain:
+        return ""
+    d = domain.strip().lower().rstrip(".")
+    if d.startswith("www."):
+        d = d[4:]
+    return d
+
+def _match_domain_service(domain: str) -> Optional[str]:
+    normalized = _normalize_domain(domain)
+    if not normalized:
+        return None
+    for listed, service in CRITICAL_DNS_DOMAINS.items():
+        if normalized == listed or normalized.endswith("." + listed):
+            return service
+    return None
+
+def _resolve_mac(ip: str) -> str:
+    if not ip:
+        return "Unknown"
+    scan_file = os.path.join(os.path.dirname(SCRIPT_DIR), "module1_network_discovery", "scan_results.json")
+    try:
+        with open(scan_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            for host in data.get("hosts", []):
+                if host.get("ip") == ip:
+                    mac = host.get("mac_address", "Unknown")
+                    return mac if mac != "N/A" else "Unknown"
+    except Exception:
+        pass
+    return "Unknown"
+
 
 def resolve_safe_pcap_path(filepath: Optional[str]) -> Optional[str]:
     """Return a validated PCAP path from module2_packet_capture directory, else None."""
@@ -1672,13 +1716,20 @@ class CaptureEngine:
                     key = (rec["dns_query"], rec.get("dns_query_type"))
                     if key not in self._state["dns_seen"]:
                         self._state["dns_seen"].add(key)
+                    domain_name = rec["dns_query"]
+                    service_name = _match_domain_service(domain_name)
+                    classification = "critical" if service_name else "common"
+                    
                     dns_entry = {
                         "timestamp": rec.get("timestamp", ""),
-                        "domain": rec["dns_query"],
+                        "domain": domain_name,
                         "query_type": rec.get("dns_query_type", "A"),
                         "source_ip": rec.get("source_ip", ""),
                         "dns_server": rec.get("destination_ip", ""),
                         "response": rec.get("dns_response"),
+                        "classification": classification,
+                        "service": service_name or "",
+                        "mac_address": _resolve_mac(rec.get("source_ip", "")) if classification == "critical" else "Unknown",
                     }
                     self._state["dns_queries"].append(dns_entry)
 

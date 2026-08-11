@@ -520,10 +520,10 @@
                     </div>
 
                     <!-- DNS Queries -->
-                    <div class="table-card">
+                    <div class="table-card" style="margin-bottom:1.5rem;">
                         <div class="table-header">
-                            <h3><i class="fa-solid fa-globe"></i> Exam Session DNS Lookups</h3>
-                            <span class="badge badge-info" id="m2-dns-count">0</span>
+                            <h3 style="color:#ef4444;"><i class="fa-solid fa-globe"></i> 🔴 CRITICAL DNS LOOKUPS</h3>
+                            <span class="badge" style="background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.3);" id="m2-dns-critical-count">0</span>
                         </div>
                         <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
                             <table class="data-table">
@@ -531,13 +531,36 @@
                                     <tr>
                                         <th>Time</th>
                                         <th>Domain</th>
-                                        <th>Type</th>
-                                        <th>Source</th>
+                                        <th>Service</th>
+                                        <th>Source IP</th>
+                                        <th>DNS Server</th>
+                                        <th>MAC Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="m2-dns-critical-body">
+                                    <tr id="m2-dns-critical-empty"><td colspan="6" style="text-align:center;color:#6b7280;padding:1.5rem;">No critical DNS lookups yet</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="table-card" style="margin-bottom:1.5rem;">
+                        <div class="table-header">
+                            <h3 style="color:#10b981;"><i class="fa-solid fa-globe"></i> 🟢 COMMON DNS LOOKUPS</h3>
+                            <span class="badge" style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.3);" id="m2-dns-common-count">0</span>
+                        </div>
+                        <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                            <table class="data-table">
+                                <thead style="position:sticky;top:0;z-index:1;background:#1a1f2e;">
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Domain</th>
+                                        <th>Source IP</th>
                                         <th>DNS Server</th>
                                     </tr>
                                 </thead>
-                                <tbody id="m2-dns-body">
-                                    <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:1.5rem;">No DNS lookups logged yet</td></tr>
+                                <tbody id="m2-dns-common-body">
+                                    <tr id="m2-dns-common-empty"><td colspan="4" style="text-align:center;color:#6b7280;padding:1.5rem;">No common DNS lookups logged yet</td></tr>
                                 </tbody>
                             </table>
                         </div>
