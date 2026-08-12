@@ -5,7 +5,8 @@ const m2socket = (typeof io !== "undefined") ? io() : null;
 let m2PacketBuffer = [];        // Incoming packet queue (flushed to DOM every frame)
 let m2RowCount = 0;             // Total rows currently in the packet table
 let m2TotalCount = 0;           // All-time packet counter
-let m2DnsCount = 0;             // DNS query counter
+let m2CriticalDnsCount = 0;     // Critical DNS counter
+let m2CommonDnsCount = 0;       // Common DNS counter
 let m2HandshakeRows = {};       // key -> TR element reference for in-place update
 const M2_MAX_ROWS = 500;        // Maximum rows displayed in browser
 let m2FlushScheduled = false;   // rAF flush guard
@@ -553,27 +554,47 @@ function m2InitSocketHandlers() {
 
     // ── DNS query arrives ─────────────────────────────────────────────────
     m2socket.on("m2_dns", function(dns) {
-        m2DnsCount++;
-        const countEl = document.getElementById("m2-dns-count");
-        if (countEl) countEl.textContent = m2DnsCount;
+        if (dns.classification === "critical") {
+            m2CriticalDnsCount++;
+            const countEl = document.getElementById("m2-dns-critical-count");
+            if (countEl) countEl.textContent = m2CriticalDnsCount;
 
-        const tbody = document.getElementById("m2-dns-body");
-        if (!tbody) return;
+            const tbody = document.getElementById("m2-dns-critical-body");
+            if (!tbody) return;
 
-        // Remove placeholder row
-        const placeholder = tbody.querySelector("tr td[colspan='5']");
-        if (placeholder) placeholder.parentElement.remove();
+            const placeholder = document.getElementById("m2-dns-critical-empty");
+            if (placeholder) placeholder.remove();
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${dns.timestamp || ""}</td>
-            <td><strong>${escapeHtml(dns.domain || "")}</strong></td>
-            <td><span class="proto-tag proto-dns">${escapeHtml(dns.query_type || "A")}</span></td>
-            <td><code>${escapeHtml(dns.source_ip || "")}</code></td>
-            <td><code>${escapeHtml(dns.dns_server || "")}</code></td>
-        `;
-        // Insert newest at top
-        tbody.insertBefore(tr, tbody.firstChild);
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${escapeHtml(dns.timestamp || "")}</td>
+                <td><strong>${escapeHtml(dns.domain || "")}</strong></td>
+                <td><span class="badge" style="background:#ef4444;color:white;">${escapeHtml(dns.service || "")}</span></td>
+                <td><code>${escapeHtml(dns.source_ip || "")}</code></td>
+                <td><code>${escapeHtml(dns.dns_server || "")}</code></td>
+                <td><code>${escapeHtml(dns.mac_address || "Unknown")}</code></td>
+            `;
+            tbody.insertBefore(tr, tbody.firstChild);
+        } else {
+            m2CommonDnsCount++;
+            const countEl = document.getElementById("m2-dns-common-count");
+            if (countEl) countEl.textContent = m2CommonDnsCount;
+
+            const tbody = document.getElementById("m2-dns-common-body");
+            if (!tbody) return;
+
+            const placeholder = document.getElementById("m2-dns-common-empty");
+            if (placeholder) placeholder.remove();
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${escapeHtml(dns.timestamp || "")}</td>
+                <td><strong>${escapeHtml(dns.domain || "")}</strong></td>
+                <td><code>${escapeHtml(dns.source_ip || "")}</code></td>
+                <td><code>${escapeHtml(dns.dns_server || "")}</code></td>
+            `;
+            tbody.insertBefore(tr, tbody.firstChild);
+        }
     });
 
     // ── TCP handshake event ───────────────────────────────────────────────
@@ -754,13 +775,16 @@ function m2ClearCapture() {
             if (tbody) {
                 tbody.innerHTML = `<tr id="m2-empty-row"><td colspan="9" style="text-align:center;color:#6b7280;padding:2rem;">Start capture to see live packets</td></tr>`;
             }
-            const dnsTbody = document.getElementById("m2-dns-body");
-            if (dnsTbody) dnsTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#6b7280;padding:1.5rem;">No DNS queries yet</td></tr>`;
+            const dnsCritTbody = document.getElementById("m2-dns-critical-body");
+            if (dnsCritTbody) dnsCritTbody.innerHTML = `<tr id="m2-dns-critical-empty"><td colspan="6" style="text-align:center;color:#6b7280;padding:1.5rem;">No critical DNS lookups yet</td></tr>`;
+            const dnsCommonTbody = document.getElementById("m2-dns-common-body");
+            if (dnsCommonTbody) dnsCommonTbody.innerHTML = `<tr id="m2-dns-common-empty"><td colspan="4" style="text-align:center;color:#6b7280;padding:1.5rem;">No common DNS lookups logged yet</td></tr>`;
             const hsTbody = document.getElementById("m2-handshakes-body");
             if (hsTbody) hsTbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#6b7280;padding:1.5rem;">No handshakes yet</td></tr>`;
 
             // Reset counters
-            m2RowCount = 0; m2TotalCount = 0; m2DnsCount = 0;
+            m2RowCount = 0; m2TotalCount = 0; 
+            m2CriticalDnsCount = 0; m2CommonDnsCount = 0;
             m2HandshakeRows = {}; m2PacketBuffer = [];
 
             ["TCP","UDP","DNS","HTTPS/TLS","ICMP","HTTP","QUIC","OTHER"].forEach(p => {
@@ -774,7 +798,8 @@ function m2ClearCapture() {
             document.getElementById("m2-total-badge").textContent = "0 Packets";
             document.getElementById("packet-count-badge").textContent = "0 Packets";
             document.getElementById("m2-hs-count").textContent = "0";
-            document.getElementById("m2-dns-count").textContent = "0";
+            if(document.getElementById("m2-dns-critical-count")) document.getElementById("m2-dns-critical-count").textContent = "0";
+            if(document.getElementById("m2-dns-common-count")) document.getElementById("m2-dns-common-count").textContent = "0";
 
             showToast("Capture data cleared.");
         })
